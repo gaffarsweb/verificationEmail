@@ -40,8 +40,9 @@ const Home = () => {
     setResendLoading(true);
 
     try {
-      const response = await axios.post("https://example.com/api/resend-link", { /* data */ });
-      if (response.status === 200) {
+      const response = await axios.post(`http://localhost:3001/v1/user/resend-verification-mail?token=${paramValue}`, { /* data */ });
+      console.log(response)
+      if (response.data.code === 200) {
         setResendSuccess(true);
       }
     } catch (error) {
