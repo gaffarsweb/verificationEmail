@@ -66,6 +66,19 @@ body {
         align-items: center;
         transform: translatex(-50%);
 }
+.playedCards{
+        color: black;
+        position: absolute;
+        top: 55%;
+        left: 50%;
+        width: 44px;
+        height: 63px;
+        background: white;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        transform: translatex(-50%);
+}
 .player2 {
     left: 10%;
     top: 50%;

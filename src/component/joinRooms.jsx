@@ -13,6 +13,7 @@ const JoinRoome = () => {
     const [socket, setSocket] = useState(null); // Single socket instance
     const [roomId, setroomId] = useState(null); // Single socket instance
     const [remaningCards, setremaningCards] = useState([])
+    const [playedCards, setPlayedCards] = useState([])
     const [selfPlayer, setSelfPlayer] = useState({})
     const [Opponents, setOpponents] = useState([])
     const [socketValue, setSocketValue] = useState(null)
@@ -75,6 +76,9 @@ const JoinRoome = () => {
                     if (e.roomData?.totalCards) {
                         setremaningCards(e.roomData.totalCards)
                     }
+                    if (e?.roomData?.playedCards) {
+                         setPlayedCards(e?.roomData?.playedCards)
+                      }
                     if (e.roomData.status == 'playing') {
                         console.log('playing updated')
                     }
@@ -92,7 +96,7 @@ const JoinRoome = () => {
     return (
         <div>
             {showPlayGround ? (
-                <PlayGround setSocketValue={setSocketValue} socketValue={socketValue} setremaningCards={setremaningCards} selfPlayer={selfPlayer} Opponents={Opponents} setOpponents={setOpponents} setSelfPlayer={setSelfPlayer} remaningCards={remaningCards}  roomId = {roomId} userName={userName} socket={socket} />
+                <PlayGround playedCards={playedCards} setPlayedCards={setPlayedCards} setSocketValue={setSocketValue} socketValue={socketValue} setremaningCards={setremaningCards} selfPlayer={selfPlayer} Opponents={Opponents} setOpponents={setOpponents} setSelfPlayer={setSelfPlayer} remaningCards={remaningCards}  roomId = {roomId} userName={userName} socket={socket} />
             ) : (
                 <div>
                     {loading ? (
