@@ -7,10 +7,15 @@ import PlayGround from "./playGround";
 const JoinRoome = () => {
     const SOCKET_SERVER_URL = "http://localhost:3001";
     const [loading, setLoading] = useState(false);
+    const [ifapiSuccess, setifapiSuccess] = useState(false);
     const [showPlayGround, setShowPlayGround] = useState(false);
     const [userName, setUserName] = useState('');
     const [socket, setSocket] = useState(null); // Single socket instance
     const [roomId, setroomId] = useState(null); // Single socket instance
+    const [remaningCards, setremaningCards] = useState([])
+    const [selfPlayer, setSelfPlayer] = useState({})
+    const [Opponents, setOpponents] = useState([])
+    const [socketValue, setSocketValue] = useState(null)
 
     const useQuery = () => {
         return new URLSearchParams(useLocation().search);
@@ -31,6 +36,7 @@ const JoinRoome = () => {
                 const roomId = response.data.data.data._id;
                 setLoading(true);
                 setroomId(roomId)
+                window.localStorage.setItem('roomId', roomId)
                 socket.emit('joinedRoom', { roomId });
 
                 socket.on('roomUpdates', (e) => {
@@ -49,17 +55,44 @@ const JoinRoome = () => {
         // Initialize the socket connection once
         const newSocket = io(SOCKET_SERVER_URL);
         setSocket(newSocket);
+            // Emit to the server that the user has joined a room
+            newSocket.emit('joinedRoom', { roomId });
 
+            // Listen for room updates from the server
+            newSocket.on('roomUpdates', (e) => {
+                setSocketValue(e.roomData)
+                if (e.roomData) {
+                    const selfPlay = e.roomData.players.find((p) => p.userName === userName);
+                    setSelfPlayer(selfPlay);
+
+                    // Filter out the self player to get the opponents
+                    const opponents = e.roomData.players.filter((p) => p.userName !== userName);
+                    setOpponents(opponents);
+
+
+
+                    console.log('e', e.roomData)
+                    if (e.roomData?.totalCards) {
+                        setremaningCards(e.roomData.totalCards)
+                    }
+                    if (e.roomData.status == 'playing') {
+                        console.log('playing updated')
+                    }
+
+
+                }
+            });
+        
         // Cleanup on component unmount
         return () => {
             newSocket.disconnect();
         };
-    }, []);
+    }, [ showPlayGround]);
 
     return (
         <div>
             {showPlayGround ? (
-                <PlayGround roomId = {roomId} userName={userName} socket={socket} />
+                <PlayGround setSocketValue={setSocketValue} socketValue={socketValue} setremaningCards={setremaningCards} selfPlayer={selfPlayer} Opponents={Opponents} setOpponents={setOpponents} setSelfPlayer={setSelfPlayer} remaningCards={remaningCards}  roomId = {roomId} userName={userName} socket={socket} />
             ) : (
                 <div>
                     {loading ? (
