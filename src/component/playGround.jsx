@@ -4,7 +4,7 @@ import io from 'socket.io-client';
 import './index.css'
 
 const PlayGround = ({ socketValue, setSocketValue, setremaningCards, Opponents, selfPlayer, roomId, userName, socket, setSelfPlayer, setOpponents, remaningCards, }) => {
-    // const SOCKET_SERVER_URL = "http://localhost:3001";
+    // const SOCKET_SERVER_URL = "https://euthre-demo-game.onrender.com";
     // const socket = io(SOCKET_SERVER_URL);
 
     const [playedCards, setPlayedCards] = useState([])

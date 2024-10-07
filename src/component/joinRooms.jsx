@@ -5,7 +5,7 @@ import io from 'socket.io-client';
 import PlayGround from "./playGround";
 
 const JoinRoome = () => {
-    const SOCKET_SERVER_URL = "http://localhost:3001";
+    const SOCKET_SERVER_URL = "https://euthre-demo-game.onrender.com";
     const [loading, setLoading] = useState(false);
     const [ifapiSuccess, setifapiSuccess] = useState(false);
     const [showPlayGround, setShowPlayGround] = useState(false);
@@ -32,7 +32,7 @@ const JoinRoome = () => {
         }
 
         try {
-            const response = await axios.post(`http://localhost:3001/v1/playing-room/create-update`, { userName });
+            const response = await axios.post(`https://euthre-demo-game.onrender.com/v1/playing-room/create-update`, { userName });
             if (response.data.code === 200 || response.data.code === 201) {
                 const roomId = response.data.data.data._id;
                 setLoading(true);
