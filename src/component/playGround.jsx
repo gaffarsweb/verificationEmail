@@ -8,6 +8,7 @@ const PlayGround = ({ socketValue, setSocketValue, setremaningCards, Opponents, 
     // const socket = io(SOCKET_SERVER_URL);
 
     const [playedCards, setPlayedCards] = useState([])
+    const [players, setplayers] = useState([])
 
 
     const useQuery = () => {
@@ -26,6 +27,7 @@ const PlayGround = ({ socketValue, setSocketValue, setremaningCards, Opponents, 
                 // Filter out the self player to get the opponents
                 const opponents = e?.roomData?.players.filter((p) => p?.userName !== userName);
                 setOpponents(opponents);
+                setplayers(e?.roomData?.players)
 
 
 
@@ -52,7 +54,7 @@ const PlayGround = ({ socketValue, setSocketValue, setremaningCards, Opponents, 
 
 
 
-        
+
 
 
     }, [roomId]);
@@ -66,6 +68,7 @@ const PlayGround = ({ socketValue, setSocketValue, setremaningCards, Opponents, 
             // Filter out the self player to get the opponents
             const opponents = e?.roomData?.players.filter((p) => p?.userName !== userName);
             setOpponents(opponents);
+            setplayers(e?.roomData?.players)
 
 
 
@@ -85,6 +88,23 @@ const PlayGround = ({ socketValue, setSocketValue, setremaningCards, Opponents, 
     });
     return (
         <div class="">
+            <div class="pontTable">
+                {
+                    players ?
+                        players && players.map((p) => {
+
+                            return (
+                                p ?
+                                    <div style={{ display: 'flex', color: "white", justifyContent: 'start', gap: "20px", margin: '5px 0px' }}>
+                                        <p style={{ color: 'white' }}>{p?.userName}</p> :
+                                        <p style={{ color: 'white' }}>{p?.points} Points</p>
+                                    </div>
+                                    : null
+                            )
+                        })
+                        : null
+                }
+            </div>
             <div class="table">
                 <p>Table</p>
             </div>
@@ -92,18 +112,22 @@ const PlayGround = ({ socketValue, setSocketValue, setremaningCards, Opponents, 
                 <p>{remaningCards[0]}</p>
             </div>
             {
-               playedCards && playedCards.map((item, i) => {
-                // Define the marginLeft values based on the index
-                const marginLeftValues = ['-120px', '-80px', '-40px', '-0px', '40px', '80px', '120px', '160px'];
-                const marginLeft = marginLeftValues[i] || '0px'; // Default to '0px' if the index is out of range
-            
-                return (
-                    <div key={i} style={{ marginLeft }} className="playedCards">
-                        <p>{item}</p>
-                    </div>
-                );
-            })
-            
+                playedCards && playedCards.map((item, i) => {
+                    // Define the marginLeft values based on the index
+                    const marginLeftValues = ['-120px', '-80px', '-40px', '-0px', '40px', '80px', '120px', '160px'];
+                    const marginLeft = marginLeftValues[i] || '0px'; // Default to '0px' if the index is out of range
+
+                    return (
+                        item
+                            ?
+                            <div key={i} style={{ marginLeft }} className="playedCards">
+                                <p>{item?.card ? item?.card : item}</p>
+                            </div> : null
+
+
+                    );
+                })
+
             }
 
             <div class="player player1">
@@ -117,7 +141,7 @@ const PlayGround = ({ socketValue, setSocketValue, setremaningCards, Opponents, 
                         selfPlayer?.cards && selfPlayer?.cards.map((item) => (
                             item !== 0 && item ?
                                 (
-                                    <button onClick={() => PlayedGame(item)} disabled={!selfPlayer.isTurn || !selfPlayer?.userName == userName} class="card">{item}</button>
+                                    <button onClick={() => PlayedGame(item)} disabled={!selfPlayer.isTurn || !selfPlayer?.userName == userName} class="card">{item?.card ? item?.card : item}</button>
                                 ) : ''
                         ))
                     }
@@ -136,7 +160,7 @@ const PlayGround = ({ socketValue, setSocketValue, setremaningCards, Opponents, 
                         Opponents[0]?.cards && Opponents[0].cards.map((item) => (
                             item !== 0 && item ?
                                 (
-                                    <button onClick={() => PlayedGame(item)} disabled={!Opponents[0].isTurn || !Opponents[0]?.userName == userName} class="card">{item}</button>
+                                    <button onClick={() => PlayedGame(item)} disabled={!Opponents[0].isTurn || !Opponents[0]?.userName == userName} class="card">{item?.card ? item?.card : item}</button>
                                 ) : ''
                         ))
                     }
@@ -157,7 +181,7 @@ const PlayGround = ({ socketValue, setSocketValue, setremaningCards, Opponents, 
                         Opponents[1]?.cards && Opponents[1].cards.map((item) => (
                             item !== 0 && item ?
                                 (
-                                    <button onClick={() => PlayedGame(item)} disabled={!Opponents[1].isTurn || !Opponents[1]?.userName == userName} class="card">{item}</button>
+                                    <button onClick={() => PlayedGame(item)} disabled={!Opponents[1].isTurn || !Opponents[1]?.userName == userName} class="card">{item?.card ? item?.card : item}</button>
                                 ) : ''
                         ))
                     }
@@ -178,7 +202,7 @@ const PlayGround = ({ socketValue, setSocketValue, setremaningCards, Opponents, 
                         Opponents[2]?.cards && Opponents[2].cards.map((item) => (
                             item !== 0 && item ?
                                 (
-                                    <button onClick={() => PlayedGame(item)} disabled={!Opponents[2].isTurn || !Opponents[2]?.userName == userName} class="card">{item}</button>
+                                    <button onClick={() => PlayedGame(item)} disabled={!Opponents[2].isTurn || !Opponents[2]?.userName == userName} class="card">{item?.card ? item?.card : item}</button>
                                 ) : ''
                         ))
                     }

@@ -114,3 +114,11 @@ body {
     align-items: center;
     font-size: 12px;
 }
+.pontTable{
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    display: flex;
+    flex-direction: column;
+
+}
