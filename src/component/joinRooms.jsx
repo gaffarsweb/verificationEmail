@@ -16,6 +16,7 @@ const JoinRoome = () => {
     const [playedCards, setPlayedCards] = useState([])
     const [selfPlayer, setSelfPlayer] = useState({})
     const [Opponents, setOpponents] = useState([])
+    const [players, setplayers] = useState([])
     const [socketValue, setSocketValue] = useState(null)
 
     const useQuery = () => {
@@ -32,6 +33,7 @@ const JoinRoome = () => {
         }
 
         try {
+            setLoading(true);
             const response = await axios.post(`https://euthre-demo-game.onrender.com/v1/playing-room/create-update`, { userName });
             if (response.data.code === 200 || response.data.code === 201) {
                 const roomId = response.data.data.data._id;
@@ -49,6 +51,7 @@ const JoinRoome = () => {
             }
         } catch (error) {
             console.error("Error joining room:", error);
+        }finally{
         }
     };
 
@@ -96,7 +99,7 @@ const JoinRoome = () => {
     return (
         <div>
             {showPlayGround ? (
-                <PlayGround playedCards={playedCards} setPlayedCards={setPlayedCards} setSocketValue={setSocketValue} socketValue={socketValue} setremaningCards={setremaningCards} selfPlayer={selfPlayer} Opponents={Opponents} setOpponents={setOpponents} setSelfPlayer={setSelfPlayer} remaningCards={remaningCards}  roomId = {roomId} userName={userName} socket={socket} />
+                <PlayGround setplayers={setplayers} players={players} playedCards={playedCards} setPlayedCards={setPlayedCards} setSocketValue={setSocketValue} socketValue={socketValue} setremaningCards={setremaningCards} selfPlayer={selfPlayer} Opponents={Opponents} setOpponents={setOpponents} setSelfPlayer={setSelfPlayer} remaningCards={remaningCards}  roomId = {roomId} userName={userName} socket={socket} />
             ) : (
                 <div>
                     {loading ? (

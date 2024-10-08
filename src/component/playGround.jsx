@@ -9,42 +9,52 @@ const PlayGround = ({ socketValue, setSocketValue, setremaningCards, Opponents, 
 
     const [playedCards, setPlayedCards] = useState([])
     const [players, setplayers] = useState([])
+    const [playedGame, setplayedGame] = useState()
 
 
     const useQuery = () => {
         return new URLSearchParams(useLocation().search);
     };
     const PlayedGame = (item) => {
-        socket.emit('gamPlayed', { roomId, card: item });
-
-        socket.on('roomUpdates', async (e) => {
-            console.log('eeeee', e)
-            setSocketValue(e?.roomData)
-            if (e?.roomData) {
-                const selfPlay = e?.roomData?.players.find((p) => p?.userName === userName);
-                setSelfPlayer(selfPlay);
-
-                // Filter out the self player to get the opponents
-                const opponents = e?.roomData?.players.filter((p) => p?.userName !== userName);
-                setOpponents(opponents);
-                setplayers(e?.roomData?.players)
-
-
-
-                console.log('eddddddddddddddddddddd', e?.roomData)
-                if (e?.roomData?.playedCards) {
-                    setPlayedCards(e?.roomData?.playedCards)
+        try {
+            setplayedGame(true)
+            socket.emit('gamPlayed', { roomId, card: item });
+    
+    
+            socket.on('roomUpdates', async (e) => {
+                console.log('eeeee', e)
+                setSocketValue(e?.roomData)
+                if (e?.roomData) {
+                    const selfPlay = e?.roomData?.players.find((p) => p?.userName === userName);
+                    setSelfPlayer(selfPlay);
+    
+                    // Filter out the self player to get the opponents
+                    const opponents = e?.roomData?.players.filter((p) => p?.userName !== userName);
+                    setOpponents(opponents);
+                    setplayers(e?.roomData?.players)
+    
+    
+    
+                    console.log('eddddddddddddddddddddd', e?.roomData)
+                    if (e?.roomData?.playedCards) {
+                        setPlayedCards(e?.roomData?.playedCards)
+                    }
+                    if (e?.roomData?.totalCards) {
+                        setremaningCards(e?.roomData?.totalCards)
+                    }
+                    if (e?.roomData?.status == 'playing') {
+                        console.log('playing updated')
+                    }
+    
+                    setplayedGame(false)
+    
                 }
-                if (e?.roomData?.totalCards) {
-                    setremaningCards(e?.roomData?.totalCards)
-                }
-                if (e?.roomData?.status == 'playing') {
-                    console.log('playing updated')
-                }
-
-
-            }
-        });
+            });
+        } catch (error) {
+            
+        }finally{
+            setplayedGame(false)
+        }
     }
     // const query = useQuery();
     // const roomId = query.get("roomId");
@@ -141,7 +151,7 @@ const PlayGround = ({ socketValue, setSocketValue, setremaningCards, Opponents, 
                         selfPlayer?.cards && selfPlayer?.cards.map((item) => (
                             item !== 0 && item ?
                                 (
-                                    <button onClick={() => PlayedGame(item)} disabled={!selfPlayer.isTurn || !selfPlayer?.userName == userName} class="card">{item?.card ? item?.card : item}</button>
+                                    <button onClick={() => PlayedGame(item)} disabled={(playedGame) || !selfPlayer.isTurn || !selfPlayer?.userName == userName} class="card">{item?.card ? item?.card : item}</button>
                                 ) : ''
                         ))
                     }
@@ -160,7 +170,7 @@ const PlayGround = ({ socketValue, setSocketValue, setremaningCards, Opponents, 
                         Opponents[0]?.cards && Opponents[0].cards.map((item) => (
                             item !== 0 && item ?
                                 (
-                                    <button onClick={() => PlayedGame(item)} disabled={!Opponents[0].isTurn || !Opponents[0]?.userName == userName} class="card">{item?.card ? item?.card : item}</button>
+                                    <button onClick={() => PlayedGame(item)} disabled={(playedGame) || !Opponents[0].isTurn || !Opponents[0]?.userName == userName} class="card">{item?.card ? item?.card : item}</button>
                                 ) : ''
                         ))
                     }
@@ -181,7 +191,7 @@ const PlayGround = ({ socketValue, setSocketValue, setremaningCards, Opponents, 
                         Opponents[1]?.cards && Opponents[1].cards.map((item) => (
                             item !== 0 && item ?
                                 (
-                                    <button onClick={() => PlayedGame(item)} disabled={!Opponents[1].isTurn || !Opponents[1]?.userName == userName} class="card">{item?.card ? item?.card : item}</button>
+                                    <button onClick={() => PlayedGame(item)} disabled={(playedGame) || !Opponents[1].isTurn || !Opponents[1]?.userName == userName} class="card">{item?.card ? item?.card : item}</button>
                                 ) : ''
                         ))
                     }
@@ -202,7 +212,7 @@ const PlayGround = ({ socketValue, setSocketValue, setremaningCards, Opponents, 
                         Opponents[2]?.cards && Opponents[2].cards.map((item) => (
                             item !== 0 && item ?
                                 (
-                                    <button onClick={() => PlayedGame(item)} disabled={!Opponents[2].isTurn || !Opponents[2]?.userName == userName} class="card">{item?.card ? item?.card : item}</button>
+                                    <button onClick={() => PlayedGame(item)} disabled={(playedGame) || !Opponents[2].isTurn || !Opponents[2]?.userName == userName} class="card">{item?.card ? item?.card : item}</button>
                                 ) : ''
                         ))
                     }
