@@ -2,9 +2,10 @@ import React, { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
 import io from 'socket.io-client';
 import './index.css'
+import TrumpBtn from "./trumpBtn";
 
 const PlayGround = ({ socketValue, setSocketValue, setremaningCards, Opponents, selfPlayer, roomId, userName, socket, setSelfPlayer, setOpponents, remaningCards, }) => {
-    // const SOCKET_SERVER_URL = "https://euthre-demo-game.onrender.com";
+    // const SOCKET_SERVER_URL = "http://localhost:3001";
     // const socket = io(SOCKET_SERVER_URL);
 
     const [playedCards, setPlayedCards] = useState([])
@@ -19,22 +20,22 @@ const PlayGround = ({ socketValue, setSocketValue, setremaningCards, Opponents, 
         try {
             setplayedGame(true)
             socket.emit('gamPlayed', { roomId, card: item });
-    
-    
+
+
             socket.on('roomUpdates', async (e) => {
                 console.log('eeeee', e)
                 setSocketValue(e?.roomData)
                 if (e?.roomData) {
                     const selfPlay = e?.roomData?.players.find((p) => p?.userName === userName);
                     setSelfPlayer(selfPlay);
-    
+
                     // Filter out the self player to get the opponents
                     const opponents = e?.roomData?.players.filter((p) => p?.userName !== userName);
                     setOpponents(opponents);
                     setplayers(e?.roomData?.players)
-    
-    
-    
+
+
+
                     console.log('eddddddddddddddddddddd', e?.roomData)
                     if (e?.roomData?.playedCards) {
                         setPlayedCards(e?.roomData?.playedCards)
@@ -45,14 +46,14 @@ const PlayGround = ({ socketValue, setSocketValue, setremaningCards, Opponents, 
                     if (e?.roomData?.status == 'playing') {
                         console.log('playing updated')
                     }
-    
+
                     setplayedGame(false)
-    
+
                 }
             });
         } catch (error) {
-            
-        }finally{
+
+        } finally {
             setplayedGame(false)
         }
     }
@@ -141,6 +142,15 @@ const PlayGround = ({ socketValue, setSocketValue, setremaningCards, Opponents, 
             }
 
             <div class="player player1">
+                {
+                    selfPlayer?.isDealer ?
+                        (
+                            <div>
+                                <p style={{ background: "white", color: "black", padding: '10px', fontSize: "18px" }}>D</p>
+                            </div>
+                        ) : null
+                }
+
                 <div style={{ color: 'white' }}>
                     {
                         selfPlayer?.isTurn ? 'Your Turn' : null
@@ -160,6 +170,14 @@ const PlayGround = ({ socketValue, setSocketValue, setremaningCards, Opponents, 
             </div>
 
             <div class="player player2">
+                {
+                    Opponents[0]?.isDealer ?
+                        (
+                            <div>
+                                <p style={{ background: "white", color: "black", padding: '10px', fontSize: "18px" }}>D</p>
+                            </div>
+                        ) : null
+                }
                 <div style={{ color: 'white' }}>
                     {
                         Opponents[0]?.isTurn ? 'Playing..' : null
@@ -181,6 +199,14 @@ const PlayGround = ({ socketValue, setSocketValue, setremaningCards, Opponents, 
             </div>
 
             <div class="player player3">
+                {
+                    Opponents[1]?.isDealer ?
+                        (
+                            <div>
+                                <p style={{ background: "white", color: "black", padding: '10px', fontSize: "18px" }}>D</p>
+                            </div>
+                        ) : null
+                }
                 <div style={{ color: 'white' }}>
                     {
                         Opponents[1]?.isTurn ? 'Playing..' : null
@@ -202,6 +228,14 @@ const PlayGround = ({ socketValue, setSocketValue, setremaningCards, Opponents, 
             </div>
 
             <div class="player player4">
+                {
+                    Opponents[2]?.isDealer ?
+                        (
+                            <div>
+                                <p style={{ background: "white", color: "black", padding: '10px', fontSize: "18px" }}>D</p>
+                            </div>
+                        ) : null
+                }
                 <div style={{ color: 'white' }}>
                     {
                         Opponents[2]?.isTurn ? 'Playing..' : null
@@ -220,6 +254,9 @@ const PlayGround = ({ socketValue, setSocketValue, setremaningCards, Opponents, 
                 <p className="playerName">
                     Player : {Opponents[2]?.userName || 'Waiting...'}
                 </p>
+            </div>
+            <div style={{position:"absolute", top:"60px", left:'38%'}}>
+                {/* {selfPlayer?.isTrumpShow ? (<TrumpBtn socket={socket} roomId={roomId} />) : null} */}
             </div>
         </div>
     );
