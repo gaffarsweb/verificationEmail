@@ -4,8 +4,8 @@ import io from 'socket.io-client';
 import './index.css'
 import TrumpBtn from "./trumpBtn";
 
-const PlayGround = ({ socketValue, setSocketValue, setremaningCards, Opponents, selfPlayer, roomId, userName, socket, setSelfPlayer, setOpponents, remaningCards, }) => {
-    // const SOCKET_SERVER_URL = "http://localhost:3001";
+const PlayGround = ({ socketValue, TrumpSelected, setTrumpSelected, setSocketValue, setremaningCards, Opponents, selfPlayer, roomId, userName, socket, setSelfPlayer, setOpponents, remaningCards, }) => {
+    // const SOCKET_SERVER_URL = "http://192.168.1.40:3001";
     // const socket = io(SOCKET_SERVER_URL);
 
     const [playedCards, setPlayedCards] = useState([])
@@ -16,6 +16,87 @@ const PlayGround = ({ socketValue, setSocketValue, setremaningCards, Opponents, 
     const useQuery = () => {
         return new URLSearchParams(useLocation().search);
     };
+
+    const selectedSymboles = (item) => {
+
+        try {
+            socket.emit('TrumpCardLogoSelected', { roomId, card: item });
+
+
+            socket.on('roomUpdates', async (e) => {
+                console.log('eeeee', e)
+                setSocketValue(e?.roomData)
+                if (e?.roomData) {
+                    const selfPlay = e?.roomData?.players.find((p) => p?.userName === userName);
+                    setSelfPlayer(selfPlay);
+
+                    // Filter out the self player to get the opponents
+                    const opponents = e?.roomData?.players.filter((p) => p?.userName !== userName);
+                    setOpponents(opponents);
+                    setplayers(e?.roomData?.players)
+
+
+
+                    console.log('eddddddddddddddddddddd', e?.roomData)
+                    if (e?.roomData?.playedCards) {
+                        setPlayedCards(e?.roomData?.playedCards)
+                    }
+                    if (e?.roomData?.totalCards) {
+                        setremaningCards(e?.roomData?.totalCards)
+                    }
+                    if (e?.roomData?.status == 'playing') {
+                        console.log('playing updated')
+                    }
+
+                    setplayedGame(false)
+
+                }
+            });
+        } catch (error) {
+            console.log(error)
+        }
+
+    }
+    const removeExtraCard = (item) => {
+
+        try {
+            socket.emit('removeExtraCard', { roomId, card: item });
+
+
+            socket.on('roomUpdates', async (e) => {
+                console.log('eeeee', e)
+                setSocketValue(e?.roomData)
+                if (e?.roomData) {
+                    const selfPlay = e?.roomData?.players.find((p) => p?.userName === userName);
+                    setSelfPlayer(selfPlay);
+
+                    // Filter out the self player to get the opponents
+                    const opponents = e?.roomData?.players.filter((p) => p?.userName !== userName);
+                    setOpponents(opponents);
+                    setplayers(e?.roomData?.players)
+
+
+
+                    console.log('eddddddddddddddddddddd', e?.roomData)
+                    if (e?.roomData?.playedCards) {
+                        setPlayedCards(e?.roomData?.playedCards)
+                    }
+                    if (e?.roomData?.totalCards) {
+                        setremaningCards(e?.roomData?.totalCards)
+                    }
+                    if (e?.roomData?.status == 'playing') {
+                        console.log('playing updated')
+                    }
+
+                    setplayedGame(false)
+
+                }
+            });
+        } catch (error) {
+            console.log(error)
+        }
+
+    }
     const PlayedGame = (item) => {
         try {
             setplayedGame(true)
@@ -120,7 +201,14 @@ const PlayGround = ({ socketValue, setSocketValue, setremaningCards, Opponents, 
                 <p>Table</p>
             </div>
             <div class="remaningCards">
-                <p>{remaningCards[0]}</p>
+                {
+                    socketValue.isTrumpSelected && socketValue.trumpSymbole 
+                    ?
+                    <p>{socketValue?.trumpSymbole}</p>
+                    :
+                    <p>{remaningCards[0]}</p>
+
+                }
             </div>
             {
                 playedCards && playedCards.map((item, i) => {
@@ -153,15 +241,27 @@ const PlayGround = ({ socketValue, setSocketValue, setremaningCards, Opponents, 
 
                 <div style={{ color: 'white' }}>
                     {
-                        selfPlayer?.isTurn ? 'Your Turn' : null
+                        selfPlayer?.isTurn && socketValue?.isStarted ? 'Your Turn' : null
                     }
                 </div>
                 <div class="cards">
-                    {
+                    {selfPlayer?.cards.length > 5 ? (
+                        <div >
+                            <p style={{ color: "white", fontSize: "18px" }}>Please Remove one Card</p>
+                            <div class="cards">
+                                {
+                                    selfPlayer?.cards && selfPlayer?.cards.map((item) => (
+                                        item !== 0 && item ?
+                                            (
+                                                <button onClick={() => removeExtraCard(item)} class="card">{item?.card ? item?.card : item}</button>
+                                            ) : ''
+                                    ))
+                                }</div> 
+                                </div>) :
                         selfPlayer?.cards && selfPlayer?.cards.map((item) => (
                             item !== 0 && item ?
                                 (
-                                    <button onClick={() => PlayedGame(item)} disabled={(playedGame) || !selfPlayer.isTurn || !selfPlayer?.userName == userName} class="card">{item?.card ? item?.card : item}</button>
+                                    <button onClick={() => PlayedGame(item)} disabled={socketValue.isStarted == true && (playedGame) || !selfPlayer.isTurn || !selfPlayer?.userName == userName} class="card">{item?.card ? item?.card : item}</button>
                                 ) : ''
                         ))
                     }
@@ -188,7 +288,7 @@ const PlayGround = ({ socketValue, setSocketValue, setremaningCards, Opponents, 
                         Opponents[0]?.cards && Opponents[0].cards.map((item) => (
                             item !== 0 && item ?
                                 (
-                                    <button onClick={() => PlayedGame(item)} disabled={(playedGame) || !Opponents[0].isTurn || !Opponents[0]?.userName == userName} class="card">{item?.card ? item?.card : item}</button>
+                                    <button onClick={() => PlayedGame(item)} disabled={ socketValue.isStarted == false && (playedGame) || !Opponents[0].isTurn || !Opponents[0]?.userName == userName} class="card">{item?.card ? item?.card : item}</button>
                                 ) : ''
                         ))
                     }
@@ -217,7 +317,7 @@ const PlayGround = ({ socketValue, setSocketValue, setremaningCards, Opponents, 
                         Opponents[1]?.cards && Opponents[1].cards.map((item) => (
                             item !== 0 && item ?
                                 (
-                                    <button onClick={() => PlayedGame(item)} disabled={(playedGame) || !Opponents[1].isTurn || !Opponents[1]?.userName == userName} class="card">{item?.card ? item?.card : item}</button>
+                                    <button onClick={() => PlayedGame(item)} disabled={ socketValue.isStarted == true && (playedGame) || !Opponents[1].isTurn || !Opponents[1]?.userName == userName} class="card">{item?.card ? item?.card : item}</button>
                                 ) : ''
                         ))
                     }
@@ -246,7 +346,7 @@ const PlayGround = ({ socketValue, setSocketValue, setremaningCards, Opponents, 
                         Opponents[2]?.cards && Opponents[2].cards.map((item) => (
                             item !== 0 && item ?
                                 (
-                                    <button onClick={() => PlayedGame(item)} disabled={(playedGame) || !Opponents[2].isTurn || !Opponents[2]?.userName == userName} class="card">{item?.card ? item?.card : item}</button>
+                                    <button onClick={() => PlayedGame(item)} disabled={ socketValue.isStarted == true && (playedGame) || !Opponents[2].isTurn || !Opponents[2]?.userName == userName} class="card">{item?.card ? item?.card : item}</button>
                                 ) : ''
                         ))
                     }
@@ -255,8 +355,8 @@ const PlayGround = ({ socketValue, setSocketValue, setremaningCards, Opponents, 
                     Player : {Opponents[2]?.userName || 'Waiting...'}
                 </p>
             </div>
-            <div style={{position:"absolute", top:"60px", left:'38%'}}>
-                {/* {selfPlayer?.isTrumpShow ? (<TrumpBtn socket={socket} roomId={roomId} />) : null} */}
+            <div style={{ position: "absolute", top: "60px", left: '38%' }}>
+                {selfPlayer?.isTrumpShow && !TrumpSelected ? (<TrumpBtn trumpRound={socketValue?.trumpRound} selectedSymboles={selectedSymboles} TrumpSelected={TrumpSelected} setTrumpSelected={setTrumpSelected} remaningCards={remaningCards} socket={socket} roomId={roomId} />) : null}
             </div>
         </div>
     );
