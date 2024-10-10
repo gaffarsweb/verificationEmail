@@ -5,7 +5,7 @@ import './index.css'
 import TrumpBtn from "./trumpBtn";
 
 const PlayGround = ({ socketValue, TrumpSelected, setTrumpSelected, setSocketValue, setremaningCards, Opponents, selfPlayer, roomId, userName, socket, setSelfPlayer, setOpponents, remaningCards, }) => {
-    // const SOCKET_SERVER_URL = "http://192.168.1.40:3001";
+    // const SOCKET_SERVER_URL = "http://localhost:3001";
     // const socket = io(SOCKET_SERVER_URL);
 
     const [playedCards, setPlayedCards] = useState([])

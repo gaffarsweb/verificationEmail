@@ -22,7 +22,7 @@ const Home = () => {
     setApiFailed(false);
 
     try {
-      const response = await axios.post(`http://192.168.1.40:3001/v1/user/verify-mail?token=${paramValue}`, { /* data */ });
+      const response = await axios.post(`http://localhost:3001/v1/user/verify-mail?token=${paramValue}`, { /* data */ });
       console.log(response)
       if (response.data.code === 200) {
 
@@ -40,7 +40,7 @@ const Home = () => {
     setResendLoading(true);
 
     try {
-      const response = await axios.post(`http://192.168.1.40:3001/v1/user/resend-verification-mail?token=${paramValue}`, { /* data */ });
+      const response = await axios.post(`http://localhost:3001/v1/user/resend-verification-mail?token=${paramValue}`, { /* data */ });
       console.log(response)
       if (response.data.code === 200) {
         setResendSuccess(true);
