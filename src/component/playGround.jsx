@@ -3,15 +3,29 @@ import { useLocation } from "react-router-dom";
 import io from 'socket.io-client';
 import './index.css'
 import TrumpBtn from "./trumpBtn";
+import PlayerAloneModel from "./playaloneModel";
 
-const PlayGround = ({ socketValue, TrumpSelected, setTrumpSelected, setSocketValue, setremaningCards, Opponents, selfPlayer, roomId, userName, socket, setSelfPlayer, setOpponents, remaningCards, }) => {
+const PlayGround = ({ teamTwo, playerTwo, setplayerTwo, setplayerFour, playerFour, setplayerThree, playerThree, setpartner, partner, teamOne, setteamTwo, setteamOne, socketValue, TrumpSelected, setTrumpSelected, setSocketValue, setremaningCards, Opponents, selfPlayer, roomId, userName, socket, setSelfPlayer, setOpponents, remaningCards, }) => {
     // const SOCKET_SERVER_URL = "http://localhost:3001";
     // const socket = io(SOCKET_SERVER_URL);
 
     const [playedCards, setPlayedCards] = useState([])
     const [players, setplayers] = useState([])
     const [playedGame, setplayedGame] = useState()
+    const [playaloneShow, setplayaloneShow] = useState(false)
 
+    const users = [
+        'sepit62917@paxnw.com',
+        'reyoli3093@skrank.com',
+        'ficane2423@paxnw.com',
+        'socip32443@scarden.com'
+    ]
+    const userIds = [
+        'U2nQCVwr1mFcD4RmIpGJnzSbObfx',
+        'U2nQCOIp4azwAxDCyCXsChugatAs',
+        'U2nQB0aoFr5si3HhQvECZYGRTPjg',
+        'U2nQARBMcaXllwLmiIGIPR2DbEN0'
+    ]
 
     const useQuery = () => {
         return new URLSearchParams(useLocation().search);
@@ -20,22 +34,48 @@ const PlayGround = ({ socketValue, TrumpSelected, setTrumpSelected, setSocketVal
     const selectedSymboles = (item) => {
 
         try {
-            socket.emit('TrumpCardLogoSelected', { roomId, card: item });
+            let username = Number(userName)
+            socket.emit('TrumpCardSuitSelected', { roomId, card: item });
 
 
             socket.on('roomUpdates', async (e) => {
                 console.log('eeeee', e)
                 setSocketValue(e?.roomData)
                 if (e?.roomData) {
-                    const selfPlay = e?.roomData?.players.find((p) => p?.userName === userName);
-                    setSelfPlayer(selfPlay);
+                    let selfPlayer = e?.roomData?.teamOne.find(p => p?.userName === users[username])
+                        || e?.roomData?.teamTwo.find(p => p?.userName === users[username]);
+                    setSelfPlayer(selfPlayer);
 
-                    // Filter out the self player to get the opponents
-                    const opponents = e?.roomData?.players.filter((p) => p?.userName !== userName);
-                    setOpponents(opponents);
-                    setplayers(e?.roomData?.players)
+                    let partner = [];
+                    let opponents = [];
+                    setTrumpSelected(e?.roomData?.isTrumpSelected)
+
+                    if (selfPlayer) {
+                        if (e.roomData.teamOne[0]?.userName === selfPlayer.userName) {
+                            setplayerThree(e.roomData.teamOne[1]);
+                            setplayerTwo(e.roomData.teamTwo[0])
+                            setplayerFour(e.roomData.teamTwo[1])
+                        } else if (e.roomData.teamOne[1]?.userName === selfPlayer.userName) {
+                            setplayerThree(e.roomData.teamOne[0]);
+                            setplayerTwo(e.roomData.teamTwo[1])
+                            setplayerFour(e.roomData.teamTwo[0])
+                        }
+                        if (e.roomData.teamTwo[0]?.userName === selfPlayer.userName) {
+                            setplayerThree(e.roomData.teamTwo[1]);
+                            setplayerTwo(e.roomData.teamOne[1])
+                            setplayerFour(e.roomData.teamOne[0])
+                        } else if (e.roomData.teamTwo[1]?.userName === selfPlayer.userName) {
+                            setplayerThree(e.roomData.teamTwo[0]);
+                            setplayerTwo(e.roomData.teamOne[0])
+                            setplayerFour(e.roomData.teamOne[1])
+                        }
+
+                    }
 
 
+                    setteamOne(e.roomData.teamOne);
+                    setteamTwo(e.roomData.teamTwo);
+                    setplayers(e.roomData.players);
 
                     console.log('eddddddddddddddddddddd', e?.roomData)
                     if (e?.roomData?.playedCards) {
@@ -60,6 +100,8 @@ const PlayGround = ({ socketValue, TrumpSelected, setTrumpSelected, setSocketVal
     const removeExtraCard = (item) => {
 
         try {
+            let username = Number(userName)
+
             socket.emit('removeExtraCard', { roomId, card: item });
 
 
@@ -67,15 +109,39 @@ const PlayGround = ({ socketValue, TrumpSelected, setTrumpSelected, setSocketVal
                 console.log('eeeee', e)
                 setSocketValue(e?.roomData)
                 if (e?.roomData) {
-                    const selfPlay = e?.roomData?.players.find((p) => p?.userName === userName);
-                    setSelfPlayer(selfPlay);
+                    let selfPlayer = e?.roomData?.teamOne.find(p => p?.userName === users[username])
+                        || e?.roomData?.teamTwo.find(p => p?.userName === users[username]);
+                    setSelfPlayer(selfPlayer);
 
-                    // Filter out the self player to get the opponents
-                    const opponents = e?.roomData?.players.filter((p) => p?.userName !== userName);
-                    setOpponents(opponents);
-                    setplayers(e?.roomData?.players)
+                    let partner = [];
+                    let opponents = [];
+                    setTrumpSelected(e?.roomData?.isTrumpSelected)
 
+                    if (selfPlayer) {
+                        if (e.roomData.teamOne[0]?.userName === selfPlayer.userName) {
+                            setplayerThree(e.roomData.teamOne[1]);
+                            setplayerTwo(e.roomData.teamTwo[0])
+                            setplayerFour(e.roomData.teamTwo[1])
+                        } else if (e.roomData.teamOne[1]?.userName === selfPlayer.userName) {
+                            setplayerThree(e.roomData.teamOne[0]);
+                            setplayerTwo(e.roomData.teamTwo[1])
+                            setplayerFour(e.roomData.teamTwo[0])
+                        }
+                        if (e.roomData.teamTwo[0]?.userName === selfPlayer.userName) {
+                            setplayerThree(e.roomData.teamTwo[1]);
+                            setplayerTwo(e.roomData.teamOne[1])
+                            setplayerFour(e.roomData.teamOne[0])
+                        } else if (e.roomData.teamTwo[1]?.userName === selfPlayer.userName) {
+                            setplayerThree(e.roomData.teamTwo[0]);
+                            setplayerTwo(e.roomData.teamOne[0])
+                            setplayerFour(e.roomData.teamOne[1])
+                        }
 
+                    }
+
+                    setteamOne(e.roomData.teamOne);
+                    setteamTwo(e.roomData.teamTwo);
+                    setplayers(e.roomData.players);
 
                     console.log('eddddddddddddddddddddd', e?.roomData)
                     if (e?.roomData?.playedCards) {
@@ -102,20 +168,46 @@ const PlayGround = ({ socketValue, TrumpSelected, setTrumpSelected, setSocketVal
             setplayedGame(true)
             socket.emit('gamPlayed', { roomId, card: item });
 
+            let username = Number(userName)
 
             socket.on('roomUpdates', async (e) => {
                 console.log('eeeee', e)
                 setSocketValue(e?.roomData)
                 if (e?.roomData) {
-                    const selfPlay = e?.roomData?.players.find((p) => p?.userName === userName);
-                    setSelfPlayer(selfPlay);
+                    let selfPlayer = e?.roomData?.teamOne.find(p => p?.userName === users[username])
+                        || e?.roomData?.teamTwo.find(p => p?.userName === users[username]);
+                    setSelfPlayer(selfPlayer);
 
-                    // Filter out the self player to get the opponents
-                    const opponents = e?.roomData?.players.filter((p) => p?.userName !== userName);
-                    setOpponents(opponents);
-                    setplayers(e?.roomData?.players)
+                    let partner = [];
+                    let opponents = [];
+                    setTrumpSelected(e?.roomData?.isTrumpSelected)
+
+                    if (selfPlayer) {
+                        if (e.roomData.teamOne[0]?.userName === selfPlayer.userName) {
+                            setplayerThree(e.roomData.teamOne[1]);
+                            setplayerTwo(e.roomData.teamTwo[0])
+                            setplayerFour(e.roomData.teamTwo[1])
+                        } else if (e.roomData.teamOne[1]?.userName === selfPlayer.userName) {
+                            setplayerThree(e.roomData.teamOne[0]);
+                            setplayerTwo(e.roomData.teamTwo[1])
+                            setplayerFour(e.roomData.teamTwo[0])
+                        }
+                        if (e.roomData.teamTwo[0]?.userName === selfPlayer.userName) {
+                            setplayerThree(e.roomData.teamTwo[1]);
+                            setplayerTwo(e.roomData.teamOne[1])
+                            setplayerFour(e.roomData.teamOne[0])
+                        } else if (e.roomData.teamTwo[1]?.userName === selfPlayer.userName) {
+                            setplayerThree(e.roomData.teamTwo[0]);
+                            setplayerTwo(e.roomData.teamOne[0])
+                            setplayerFour(e.roomData.teamOne[1])
+                        }
+
+                    }
 
 
+                    setteamOne(e.roomData.teamOne);
+                    setteamTwo(e.roomData.teamTwo);
+                    setplayers(e.roomData.players);
 
                     console.log('eddddddddddddddddddddd', e?.roomData)
                     if (e?.roomData?.playedCards) {
@@ -151,18 +243,45 @@ const PlayGround = ({ socketValue, TrumpSelected, setTrumpSelected, setSocketVal
 
     }, [roomId]);
     socket.on('roomUpdates', async (e) => {
+        let username = Number(userName)
+
         console.log('eeeee', e)
         setSocketValue(e?.roomData)
         if (e?.roomData) {
-            const selfPlay = e?.roomData?.players.find((p) => p?.userName === userName);
-            setSelfPlayer(selfPlay);
+            let selfPlayer = e?.roomData?.teamOne.find(p => p?.userName === users[username])
+                || e?.roomData?.teamTwo.find(p => p?.userName === users[username]);
+            setSelfPlayer(selfPlayer);
 
-            // Filter out the self player to get the opponents
-            const opponents = e?.roomData?.players.filter((p) => p?.userName !== userName);
-            setOpponents(opponents);
-            setplayers(e?.roomData?.players)
+            let partner = [];
+            let opponents = [];
+            setTrumpSelected(e?.roomData?.isTrumpSelected)
+
+            if (selfPlayer) {
+                if (e.roomData.teamOne[0]?.userName === selfPlayer.userName) {
+                    setplayerThree(e.roomData.teamOne[1]);
+                    setplayerTwo(e.roomData.teamTwo[0])
+                    setplayerFour(e.roomData.teamTwo[1])
+                } else if (e.roomData.teamOne[1]?.userName === selfPlayer.userName) {
+                    setplayerThree(e.roomData.teamOne[0]);
+                    setplayerTwo(e.roomData.teamTwo[1])
+                    setplayerFour(e.roomData.teamTwo[0])
+                }
+                if (e.roomData.teamTwo[0]?.userName === selfPlayer.userName) {
+                    setplayerThree(e.roomData.teamTwo[1]);
+                    setplayerTwo(e.roomData.teamOne[1])
+                    setplayerFour(e.roomData.teamOne[0])
+                } else if (e.roomData.teamTwo[1]?.userName === selfPlayer.userName) {
+                    setplayerThree(e.roomData.teamTwo[0]);
+                    setplayerTwo(e.roomData.teamOne[0])
+                    setplayerFour(e.roomData.teamOne[1])
+                }
+
+            }
 
 
+            setteamOne(e.roomData.teamOne);
+            setteamTwo(e.roomData.teamTwo);
+            setplayers(e.roomData.players);
 
             console.log('eddddddddddddddddddddd', e?.roomData)
             if (e?.roomData?.playedCards) {
@@ -175,6 +294,7 @@ const PlayGround = ({ socketValue, TrumpSelected, setTrumpSelected, setSocketVal
                 console.log('playing updated')
             }
 
+            setplayedGame(false)
 
         }
     });
@@ -202,11 +322,11 @@ const PlayGround = ({ socketValue, TrumpSelected, setTrumpSelected, setSocketVal
             </div>
             <div class="remaningCards">
                 {
-                    socketValue.isTrumpSelected && socketValue.trumpSymbole 
-                    ?
-                    <p>{socketValue?.trumpSymbole}</p>
-                    :
-                    <p>{remaningCards[0]}</p>
+                    socketValue?.isTrumpSelected && socketValue?.trumpSuit
+                        ?
+                        <p>{socketValue?.trumpSuit}</p>
+                        :
+                        <p>{remaningCards[0]}</p>
 
                 }
             </div>
@@ -241,11 +361,11 @@ const PlayGround = ({ socketValue, TrumpSelected, setTrumpSelected, setSocketVal
 
                 <div style={{ color: 'white' }}>
                     {
-                        selfPlayer?.isTurn && socketValue?.isStarted ? 'Your Turn' : null
+                        selfPlayer?.isTurn && selfPlayer?.isTurn && socketValue?.isStarted ? 'Your Turn' : null
                     }
                 </div>
                 <div class="cards">
-                    {selfPlayer?.cards.length > 5 ? (
+                    {selfPlayer?.cards?.length > 5 ? (
                         <div >
                             <p style={{ color: "white", fontSize: "18px" }}>Please Remove one Card</p>
                             <div class="cards">
@@ -256,8 +376,8 @@ const PlayGround = ({ socketValue, TrumpSelected, setTrumpSelected, setSocketVal
                                                 <button onClick={() => removeExtraCard(item)} class="card">{item?.card ? item?.card : item}</button>
                                             ) : ''
                                     ))
-                                }</div> 
-                                </div>) :
+                                }</div>
+                        </div>) :
                         selfPlayer?.cards && selfPlayer?.cards.map((item) => (
                             item !== 0 && item ?
                                 (
@@ -271,7 +391,7 @@ const PlayGround = ({ socketValue, TrumpSelected, setTrumpSelected, setSocketVal
 
             <div class="player player2">
                 {
-                    Opponents[0]?.isDealer ?
+                    playerTwo?.isDealer ?
                         (
                             <div>
                                 <p style={{ background: "white", color: "black", padding: '10px', fontSize: "18px" }}>D</p>
@@ -280,27 +400,27 @@ const PlayGround = ({ socketValue, TrumpSelected, setTrumpSelected, setSocketVal
                 }
                 <div style={{ color: 'white' }}>
                     {
-                        Opponents[0]?.isTurn ? 'Playing..' : null
+                        playerTwo?.isTurn && playerTwo?.isTurn ? 'Playing..' : null
                     }
                 </div>
                 <div class="cards">
                     {
-                        Opponents[0]?.cards && Opponents[0].cards.map((item) => (
+                        playerTwo?.cards && playerTwo.cards.map((item) => (
                             item !== 0 && item ?
                                 (
-                                    <button onClick={() => PlayedGame(item)} disabled={ socketValue.isStarted == false && (playedGame) || !Opponents[0].isTurn || !Opponents[0]?.userName == userName} class="card">{item?.card ? item?.card : item}</button>
+                                    <button onClick={() => PlayedGame(item)} disabled={socketValue.isStarted == false && (playedGame) || !playerTwo.isTurn || !playerTwo?.userName == userName} class="card">{item?.card ? item?.card : item}</button>
                                 ) : ''
                         ))
                     }
                 </div>
                 <p className="playerName">
-                    Player : {Opponents[0]?.userName || 'Waiting...'}
+                    Player : {playerTwo?.userName || 'Waiting...'}
                 </p>
             </div>
 
             <div class="player player3">
                 {
-                    Opponents[1]?.isDealer ?
+                    playerThree?.isDealer ?
                         (
                             <div>
                                 <p style={{ background: "white", color: "black", padding: '10px', fontSize: "18px" }}>D</p>
@@ -309,27 +429,27 @@ const PlayGround = ({ socketValue, TrumpSelected, setTrumpSelected, setSocketVal
                 }
                 <div style={{ color: 'white' }}>
                     {
-                        Opponents[1]?.isTurn ? 'Playing..' : null
+                        playerThree?.isTurn && playerThree?.isTurn ? 'Playing..' : null
                     }
                 </div>
                 <div class="cards">
                     {
-                        Opponents[1]?.cards && Opponents[1].cards.map((item) => (
+                        playerThree?.cards && playerThree.cards.map((item) => (
                             item !== 0 && item ?
                                 (
-                                    <button onClick={() => PlayedGame(item)} disabled={ socketValue.isStarted == true && (playedGame) || !Opponents[1].isTurn || !Opponents[1]?.userName == userName} class="card">{item?.card ? item?.card : item}</button>
+                                    <button onClick={() => PlayedGame(item)} disabled={socketValue.isStarted == true && (playedGame) || !playerThree.isTurn || !playerThree?.userName == userName} class="card">{item?.card ? item?.card : item}</button>
                                 ) : ''
                         ))
                     }
                 </div>
                 <p className="playerName">
-                    Player : {Opponents[1]?.userName || 'Waiting...'}
+                    Player : {playerThree?.userName || 'Waiting...'}
                 </p>
             </div>
 
             <div class="player player4">
                 {
-                    Opponents[2]?.isDealer ?
+                    playerFour?.isDealer ?
                         (
                             <div>
                                 <p style={{ background: "white", color: "black", padding: '10px', fontSize: "18px" }}>D</p>
@@ -338,25 +458,26 @@ const PlayGround = ({ socketValue, TrumpSelected, setTrumpSelected, setSocketVal
                 }
                 <div style={{ color: 'white' }}>
                     {
-                        Opponents[2]?.isTurn ? 'Playing..' : null
+                        playerFour?.isTurn && playerFour?.isTurn ? 'Playing..' : null
                     }
                 </div>
                 <div class="cards">
                     {
-                        Opponents[2]?.cards && Opponents[2].cards.map((item) => (
+                        playerFour?.cards && playerFour.cards.map((item) => (
                             item !== 0 && item ?
                                 (
-                                    <button onClick={() => PlayedGame(item)} disabled={ socketValue.isStarted == true && (playedGame) || !Opponents[2].isTurn || !Opponents[2]?.userName == userName} class="card">{item?.card ? item?.card : item}</button>
+                                    <button onClick={() => PlayedGame(item)} disabled={socketValue.isStarted == true && (playedGame) || !playerFour.isTurn || !playerFour?.userName == userName} class="card">{item?.card ? item?.card : item}</button>
                                 ) : ''
                         ))
                     }
                 </div>
                 <p className="playerName">
-                    Player : {Opponents[2]?.userName || 'Waiting...'}
+                    Player : {playerFour?.userName || 'Waiting...'}
                 </p>
             </div>
             <div style={{ position: "absolute", top: "60px", left: '38%' }}>
-                {selfPlayer?.isTrumpShow && !TrumpSelected ? (<TrumpBtn trumpRound={socketValue?.trumpRound} selectedSymboles={selectedSymboles} TrumpSelected={TrumpSelected} setTrumpSelected={setTrumpSelected} remaningCards={remaningCards} socket={socket} roomId={roomId} />) : null}
+                {selfPlayer?.isTrumpShow && TrumpSelected == false ? (<TrumpBtn setplayaloneShow={setplayaloneShow} trumpRound={socketValue?.trumpRound} selectedSymboles={selectedSymboles} TrumpSelected={TrumpSelected} setTrumpSelected={setTrumpSelected} remaningCards={remaningCards} socket={socket} roomId={roomId} />) : null}
+                {playaloneShow ? (<PlayerAloneModel setplayaloneShow={setplayaloneShow} userName={userName} trumpRound={socketValue?.trumpRound} selectedSymboles={selectedSymboles} TrumpSelected={TrumpSelected} setTrumpSelected={setTrumpSelected} remaningCards={remaningCards} socket={socket} roomId={roomId} />) : null}
             </div>
         </div>
     );

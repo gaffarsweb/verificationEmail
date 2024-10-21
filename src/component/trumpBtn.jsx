@@ -1,7 +1,7 @@
 import React from 'react';
 import './index.css'; // Import CSS for styling
 
-const TrumpBtn = ({ roomId ,trumpRound, TrumpSelected,setTrumpSelected, socket, remaningCards, selectedSymboles}) => {
+const TrumpBtn = ({ setplayaloneShow,roomId ,trumpRound, TrumpSelected,setTrumpSelected, socket, remaningCards, selectedSymboles}) => {
 
     const isPassed = () =>{
         console.log('cleked')
@@ -13,6 +13,7 @@ const TrumpBtn = ({ roomId ,trumpRound, TrumpSelected,setTrumpSelected, socket, 
         console.log('cleked')
         const selectedCard = remaningCards[0];
         socket.emit('TrumpSelected', { roomId, selectedCard });
+        setplayaloneShow(true)
         console.log('complete')
 
     }
