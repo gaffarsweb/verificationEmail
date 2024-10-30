@@ -23,7 +23,8 @@ const JoinRoome = () => {
     const [players, setplayers] = useState([])
     const [socketValue, setSocketValue] = useState(null)
     const [partner, setpartner] = useState([])
-    const [socketId, setsocketId] = useState('')
+    const [socketId, setsocketId] = useState('');
+    const [roomTimout, setroomTimout] = useState(0);
 
     const [teamOne, setteamOne] = useState(null)
     const [teamTwo, setteamTwo] = useState(null)
@@ -71,7 +72,8 @@ const JoinRoome = () => {
             if (response.data.code === 200 || response.data.code === 201) {
                 const roomId = response.data.data.data._id;
                 setLoading(true);
-                setroomId(roomId)
+                setroomId(roomId);
+                setroomTimout(response.data.data.data?.timeOut)
                 window.localStorage.setItem('roomId', roomId)
                 socket.emit('joinedRoom', { roomId });
 
@@ -81,6 +83,20 @@ const JoinRoome = () => {
                         setShowPlayGround(true);
                     }
                 });
+                setTimeout(() => {
+                    if (response.data.data.data?.timeOut !== 0) {
+                        let number = 4 - response.data.data.data.players.length;
+                        console.log('in bot connection', number);
+                
+                        for (let i = 0; i < number; i++) {
+                            setTimeout(() => {
+                                socket.emit('joinBot', { roomId });
+                                console.log('timer out is existed');
+                            }, i * 8000); // Delay each iteration by i * 8000 milliseconds
+                        }
+                        setroomTimout(0);
+                    }
+                }, 30000); // 60000 milliseconds = 60 seconds
             }
         } catch (error) {
             console.error("Error joining room:", error);
@@ -102,59 +118,69 @@ const JoinRoome = () => {
                 const roomId = response.data.data.data._id;
                 setroomId(roomId)
                 window.localStorage.setItem('roomId', roomId)
-                    if (response.data.data.data?.status === 'playing') {
-                        setShowPlayGround(true);
+                if (response.data.data.data?.status === 'playing') {
+                    setShowPlayGround(true);
+                }
+                if (response.data.data.data) {
+                    let selfPlayer = response.data.data.data?.teamOne.find(p => p?.userName === users[username])
+                        || response.data.data.data?.teamTwo.find(p => p?.userName === users[username]);
+                    setSelfPlayer(selfPlayer);
+
+                    let partner = [];
+                    let opponents = [];
+                    setTrumpSelected(response.data.data.data?.isTrumpSelected)
+
+                    if (selfPlayer) {
+                        if (response.data.data.data.teamOne[0]?.userName === selfPlayer.userName) {
+                            setplayerThree(response.data.data.data.teamOne[1]);
+                            setplayerTwo(response.data.data.data.teamTwo[0])
+                            setplayerFour(response.data.data.data.teamTwo[1])
+                        } else if (response.data.data.data.teamOne[1]?.userName === selfPlayer.userName) {
+                            setplayerThree(response.data.data.data.teamOne[0]);
+                            setplayerTwo(response.data.data.data.teamTwo[1])
+                            setplayerFour(response.data.data.data.teamTwo[0])
+                        }
+                        if (response.data.data.data.teamTwo[0]?.userName === selfPlayer.userName) {
+                            setplayerThree(response.data.data.data.teamTwo[1]);
+                            setplayerTwo(response.data.data.data.teamOne[1])
+                            setplayerFour(response.data.data.data.teamOne[0])
+                        } else if (response.data.data.data.teamTwo[1]?.userName === selfPlayer.userName) {
+                            setplayerThree(response.data.data.data.teamTwo[0]);
+                            setplayerTwo(response.data.data.data.teamOne[0])
+                            setplayerFour(response.data.data.data.teamOne[1])
+                        }
+
                     }
-                    if (response.data.data.data) {
-                        let selfPlayer = response.data.data.data?.teamOne.find(p => p?.userName === users[username])
-                            || response.data.data.data?.teamTwo.find(p => p?.userName === users[username]);
-                        setSelfPlayer(selfPlayer);
-        
-                        let partner = [];
-                        let opponents = [];
-                        setTrumpSelected(response.data.data.data?.isTrumpSelected)
-        
-                        if (selfPlayer) {
-                            if (response.data.data.data.teamOne[0]?.userName === selfPlayer.userName) {
-                                setplayerThree(response.data.data.data.teamOne[1]);
-                                setplayerTwo(response.data.data.data.teamTwo[0])
-                                setplayerFour(response.data.data.data.teamTwo[1])
-                            } else if (response.data.data.data.teamOne[1]?.userName === selfPlayer.userName) {
-                                setplayerThree(response.data.data.data.teamOne[0]);
-                                setplayerTwo(response.data.data.data.teamTwo[1])
-                                setplayerFour(response.data.data.data.teamTwo[0])
-                            }
-                            if (response.data.data.data.teamTwo[0]?.userName === selfPlayer.userName) {
-                                setplayerThree(response.data.data.data.teamTwo[1]);
-                                setplayerTwo(response.data.data.data.teamOne[1])
-                                setplayerFour(response.data.data.data.teamOne[0])
-                            } else if (response.data.data.data.teamTwo[1]?.userName === selfPlayer.userName) {
-                                setplayerThree(response.data.data.data.teamTwo[0]);
-                                setplayerTwo(response.data.data.data.teamOne[0])
-                                setplayerFour(response.data.data.data.teamOne[1])
-                            }
-        
-                        }
-        
-        
-                        setteamOne(response.data.data.data.teamOne);
-                        setteamTwo(response.data.data.data.teamTwo);
-                        setplayers(response.data.data.data.players);
-        
-                        console.log('eddddddddddddddddddddd', response.data.data.data)
-                        if (response.data.data.data?.playedCards) {
-                            setPlayedCards(response.data.data.data?.playedCards)
-                        }
-                        if (response.data.data.data?.totalCards) {
-                            setremaningCards(response.data.data.data?.totalCards)
-                        }
-                        if (response.data.data.data?.status == 'playing') {
-                            console.log('playing updated')
-                        }
-        
-                        // setplayedGame(false)
-        
+                    // setTimeout(() => {
+                    //     if (roomTimout !== 0) {
+                    //         console.log('in bot connection', players);
+                    //         for (let i = 0; i < players.length; i++) {
+                    //             newSocket.emit('joinBot', { roomId });
+                    //             console.log('timer out is existed');
+                    //         }
+                    //         setroomTimout(0);
+                    //     }
+                    // }, 60000); // 60000 milliseconds = 60 seconds    
+
+
+                    setteamOne(response.data.data.data.teamOne);
+                    setteamTwo(response.data.data.data.teamTwo);
+                    setplayers(response.data.data.data.players);
+
+                    console.log('eddddddddddddddddddddd', response.data.data.data)
+                    if (response.data.data.data?.playedCards) {
+                        setPlayedCards(response.data.data.data?.playedCards)
                     }
+                    if (response.data.data.data?.totalCards) {
+                        setremaningCards(response.data.data.data?.totalCards)
+                    }
+                    if (response.data.data.data?.status == 'playing') {
+                        console.log('playing updated')
+                    }
+
+                    // setplayedGame(false)
+
+                }
             }
         } catch (error) {
             console.error("Error joining room:", error);
@@ -166,8 +192,8 @@ const JoinRoome = () => {
         // Initialize the socket connection once
         const newSocket = io(SOCKET_SERVER_URL);
         setSocket(newSocket);
-        newSocket.on('connected',(e)=>{
-            if(e.socketId){
+        newSocket.on('connected', (e) => {
+            if (e.socketId) {
                 setsocketId(e.socketId)
             }
         })
@@ -176,6 +202,9 @@ const JoinRoome = () => {
         let username = Number(userName)
 
         // Listen for room updates from the server
+        newSocket.on('PlayerJoined', (e) => {
+            console.log('players playaers', e)
+        })
         newSocket.on('roomUpdates', (e) => {
             setSocketValue(e.roomData)
             if (e?.roomData) {
@@ -233,12 +262,45 @@ const JoinRoome = () => {
         //     handleCheckRoomExi(i)
         // })
         // Cleanup on component unmount
+
+               
+
+        newSocket.on('PlayerJoined', (e) => {
+            console.log('PlayerJoined', e)
+        });
+        newSocket.on('InitializeRound', (e) => {
+            console.log('InitializeRound', e)
+        });
+        newSocket.on('NotifyTrumpSelectorPlayer', (e) => {
+            console.log('NotifyTrumpSelectorPlayer', e)
+        });
+        newSocket.on('OrderPassCall', (e) => {
+            console.log('OrderPassCall', e)
+        });
+        newSocket.on('CardPlayed', (e) => {
+            console.log('CardPlayed', e)
+        });
+        newSocket.on('NextTurn', (e) => {
+            console.log('NextTurn', e)
+        });
+        newSocket.on('TrickEndResult', (e) => {
+            console.log('TrickEndResult', e)
+        });
+        newSocket.on('RoundEndResult', (e) => {
+            console.log('RoundEndResult', e)
+        });
+        newSocket.on('RemovedCard', (e) => {
+            console.log('RemovedCard', e)
+        });
+        newSocket.on('AskTeamOrAlone', (e) => {
+            console.log('AskTeamOrAlone', e)
+        });
         return () => {
             newSocket.disconnect();
         };
 
-        
-    }, [showPlayGround]);
+
+    }, [showPlayGround,]);
 
     return (
         <div>
