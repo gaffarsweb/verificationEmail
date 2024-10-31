@@ -96,7 +96,7 @@ const JoinRoome = () => {
                         }
                         setroomTimout(0);
                     }
-                }, 30000); // 60000 milliseconds = 60 seconds
+                }, 15000); // 60000 milliseconds = 60 seconds
             }
         } catch (error) {
             console.error("Error joining room:", error);
