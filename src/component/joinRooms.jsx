@@ -66,7 +66,6 @@ const JoinRoome = () => {
                     'Authorization': `Bearer ${users[username]}`
                 }
             };
-            console.log('type ofname', typeof username)
             setLoading(true);
             const response = await axios.post(`http://localhost:3001/v1/playing-room/create-update`, { socketId }, config);
             if (response.data.code === 200 || response.data.code === 201) {
@@ -78,7 +77,6 @@ const JoinRoome = () => {
                 socket.emit('joinedRoom', { roomId });
 
                 socket.on('roomUpdates', (e) => {
-                    console.log('response socket', e);
                     if (e?.roomData?.status === 'playing') {
                         setShowPlayGround(true);
                     }
@@ -86,12 +84,10 @@ const JoinRoome = () => {
                 setTimeout(() => {
                     if (response.data.data.data?.timeOut !== 0) {
                         let number = 4 - response.data.data.data.players.length;
-                        console.log('in bot connection', number);
                 
                         for (let i = 0; i < number; i++) {
                             setTimeout(() => {
                                 socket.emit('joinBot', { roomId });
-                                console.log('timer out is existed');
                             }, i * 8000); // Delay each iteration by i * 8000 milliseconds
                         }
                         setroomTimout(0);
@@ -105,14 +101,12 @@ const JoinRoome = () => {
     };
     const handleCheckRoomExi = async (userName) => {
         try {
-            console.log('user name sdfsfsdfdfd', userName)
             let username = Number(userName)
             const config = {
                 headers: {
                     'Authorization': `Bearer ${users[username]}`
                 }
             };
-            console.log('type ofname', username)
             const response = await axios.get(`http://localhost:3001/v1/playing-room/check-room-status`, config);
             if (response.data.code === 200 || response.data.code === 201) {
                 const roomId = response.data.data.data._id;
@@ -167,7 +161,6 @@ const JoinRoome = () => {
                     setteamTwo(response.data.data.data.teamTwo);
                     setplayers(response.data.data.data.players);
 
-                    console.log('eddddddddddddddddddddd', response.data.data.data)
                     if (response.data.data.data?.playedCards) {
                         setPlayedCards(response.data.data.data?.playedCards)
                     }
@@ -175,7 +168,6 @@ const JoinRoome = () => {
                         setremaningCards(response.data.data.data?.totalCards)
                     }
                     if (response.data.data.data?.status == 'playing') {
-                        console.log('playing updated')
                     }
 
                     // setplayedGame(false)
@@ -243,7 +235,6 @@ const JoinRoome = () => {
                 setteamTwo(e.roomData.teamTwo);
                 setplayers(e.roomData.players);
 
-                console.log('eddddddddddddddddddddd', e?.roomData)
                 if (e?.roomData?.playedCards) {
                     setPlayedCards(e?.roomData?.playedCards)
                 }

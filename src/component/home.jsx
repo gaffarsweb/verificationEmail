@@ -13,9 +13,7 @@ const Home = () => {
   };
 
   const query = useQuery();
-  console.log(query)
   const paramValue = query.get("token"); // Replace 'yourParam' with your query param key
-  console.log(paramValue)
 
   const handleVerifyClick = async () => {
     setLoading(true);
@@ -23,7 +21,6 @@ const Home = () => {
 
     try {
       const response = await axios.post(`https://euthre-demo-game.onrender.com/v1/user/verify-mail?token=${paramValue}`, { /* data */ });
-      console.log(response)
       if (response.data.code === 200) {
 
         setVerified(true);
@@ -41,7 +38,6 @@ const Home = () => {
 
     try {
       const response = await axios.post(`https://euthre-demo-game.onrender.com/v1/user/resend-verification-mail?token=${paramValue}`, { /* data */ });
-      console.log(response)
       if (response.data.code === 200) {
         setResendSuccess(true);
       }

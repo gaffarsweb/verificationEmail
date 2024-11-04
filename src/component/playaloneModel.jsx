@@ -9,25 +9,19 @@ const PlayerAloneModel = ({ roomId, userName, setplayaloneShow, trumpRound, Trum
         'U2nQARBMcaXllwLmiIGIPR2DbEN0'
     ]
     const isSelected = () => {
-        console.log('cleked')
         const userId = userIds[userName];
         socket.emit('playAlone', { roomId, userId });
-        console.log('complete')
         socket.on('lastAction', async (e) => {
-            console.log('dddddddddddddddddddddddddddddddddddddddddddd', e)
         })
         setplayaloneShow(false)
 
     }
     const isPassed = () => {
         const userId = userIds[userName];
-        console.log('cleked')
         socket.emit('playWithPartner', { roomId, userId });
 
         socket.on('lastAction', async (e) => {
-            console.log('dddddddddddddddddddddddddddddddddddddddddddd', e)
         })
-        console.log('complete');
         setplayaloneShow(false)
     }
 

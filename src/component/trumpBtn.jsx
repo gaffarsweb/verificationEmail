@@ -4,17 +4,13 @@ import './index.css'; // Import CSS for styling
 const TrumpBtn = ({ setplayaloneShow,roomId ,trumpRound, TrumpSelected,setTrumpSelected, socket, remaningCards, selectedSymboles}) => {
 
     const isPassed = () =>{
-        console.log('cleked')
         socket.emit('passTrumpBox', { roomId });
-        console.log('complete')
 
     }
     const isSelected = () =>{
-        console.log('cleked')
         const selectedCard = remaningCards[0];
         socket.emit('TrumpSelected', { roomId, selectedCard });
         setplayaloneShow(true)
-        console.log('complete')
 
     }
     const cardsLogos = [

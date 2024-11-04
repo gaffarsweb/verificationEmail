@@ -39,7 +39,6 @@ const PlayGround = ({ teamTwo, playerTwo, setplayerTwo, setplayerFour, playerFou
 
 
             socket.on('roomUpdates', async (e) => {
-                console.log('eeeee', e)
                 setSocketValue(e?.roomData)
                 if (e?.roomData) {
                     let selfPlayer = e?.roomData?.teamOne.find(p => p?.userName === users[username])
@@ -77,7 +76,6 @@ const PlayGround = ({ teamTwo, playerTwo, setplayerTwo, setplayerFour, playerFou
                     setteamTwo(e.roomData.teamTwo);
                     setplayers(e.roomData.players);
 
-                    console.log('eddddddddddddddddddddd', e?.roomData)
                     if (e?.roomData?.playedCards) {
                         setPlayedCards(e?.roomData?.playedCards)
                     }
@@ -85,7 +83,6 @@ const PlayGround = ({ teamTwo, playerTwo, setplayerTwo, setplayerFour, playerFou
                         setremaningCards(e?.roomData?.totalCards)
                     }
                     if (e?.roomData?.status == 'playing') {
-                        console.log('playing updated')
                     }
 
                     setplayedGame(false)
@@ -106,7 +103,6 @@ const PlayGround = ({ teamTwo, playerTwo, setplayerTwo, setplayerFour, playerFou
 
 
             socket.on('roomUpdates', async (e) => {
-                console.log('eeeee', e)
                 setSocketValue(e?.roomData)
                 if (e?.roomData) {
                     let selfPlayer = e?.roomData?.teamOne.find(p => p?.userName === users[username])
@@ -143,7 +139,6 @@ const PlayGround = ({ teamTwo, playerTwo, setplayerTwo, setplayerFour, playerFou
                     setteamTwo(e.roomData.teamTwo);
                     setplayers(e.roomData.players);
 
-                    console.log('eddddddddddddddddddddd', e?.roomData)
                     if (e?.roomData?.playedCards) {
                         setPlayedCards(e?.roomData?.playedCards)
                     }
@@ -151,7 +146,6 @@ const PlayGround = ({ teamTwo, playerTwo, setplayerTwo, setplayerFour, playerFou
                         setremaningCards(e?.roomData?.totalCards)
                     }
                     if (e?.roomData?.status == 'playing') {
-                        console.log('playing updated')
                     }
 
                     setplayedGame(false)
@@ -171,7 +165,6 @@ const PlayGround = ({ teamTwo, playerTwo, setplayerTwo, setplayerFour, playerFou
             let username = Number(userName)
 
             socket.on('roomUpdates', async (e) => {
-                console.log('eeeee', e)
                 setSocketValue(e?.roomData)
                 if (e?.roomData) {
                     let selfPlayer = e?.roomData?.teamOne.find(p => p?.userName === users[username])
@@ -209,7 +202,6 @@ const PlayGround = ({ teamTwo, playerTwo, setplayerTwo, setplayerFour, playerFou
                     setteamTwo(e.roomData.teamTwo);
                     setplayers(e.roomData.players);
 
-                    console.log('eddddddddddddddddddddd', e?.roomData)
                     if (e?.roomData?.playedCards) {
                         setPlayedCards(e?.roomData?.playedCards)
                     }
@@ -217,7 +209,6 @@ const PlayGround = ({ teamTwo, playerTwo, setplayerTwo, setplayerFour, playerFou
                         setremaningCards(e?.roomData?.totalCards)
                     }
                     if (e?.roomData?.status == 'playing') {
-                        console.log('playing updated')
                     }
 
                     setplayedGame(false)
@@ -245,7 +236,6 @@ const PlayGround = ({ teamTwo, playerTwo, setplayerTwo, setplayerFour, playerFou
     socket.on('roomUpdates', async (e) => {
         let username = Number(userName)
 
-        console.log('eeeee', e)
         setSocketValue(e?.roomData)
         if (e?.roomData) {
             let selfPlayer = e?.roomData?.teamOne.find(p => p?.userName === users[username])
@@ -283,7 +273,6 @@ const PlayGround = ({ teamTwo, playerTwo, setplayerTwo, setplayerFour, playerFou
             setteamTwo(e.roomData.teamTwo);
             setplayers(e.roomData.players);
 
-            console.log('eddddddddddddddddddddd', e?.roomData)
             if (e?.roomData?.playedCards) {
                 setPlayedCards(e?.roomData?.playedCards)
             }
@@ -291,7 +280,6 @@ const PlayGround = ({ teamTwo, playerTwo, setplayerTwo, setplayerFour, playerFou
                 setremaningCards(e?.roomData?.totalCards)
             }
             if (e?.roomData?.status == 'playing') {
-                console.log('playing updated')
             }
 
             setplayedGame(false)
