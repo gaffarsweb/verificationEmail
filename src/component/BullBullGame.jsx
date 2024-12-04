@@ -8,7 +8,8 @@ function BullBullGame() {
 
     const handleShuffle = async () => {
         try {
-            const response = await axios.post('http://localhost:3001/shuffle');
+            // const response = await axios.post('http://localhost:3001/shuffle');
+            const response = await axios.post('https://bullbullapi.onrender.com/shuffle');
             setGameData(response.data);
         } catch (error) {
             console.error("Error shuffling the deck", error);
@@ -17,7 +18,8 @@ function BullBullGame() {
 
     const handleFinish = async () => {
         try {
-            const response = await axios.post('http://localhost:3001/finish');
+            // const response = await axios.post('http://localhost:3001/finish');
+            const response = await axios.post('https://bullbullapi.onrender.com/finish');
             setResults(response.data.results);
         } catch (error) {
             console.error("Error calculating results", error);
