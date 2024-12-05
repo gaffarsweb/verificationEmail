@@ -21,7 +21,7 @@ function Lucky6() {
         setGameData(null);
         setIsLoading(true);
         try {
-            const response = await axios.post('http://localhost:3001/lucky-shuffle');
+            const response = await axios.post('https://bullbullapi.onrender.com/lucky-shuffle');
             setGameData(response.data);
         } catch (error) {
             handleApiError(error);
@@ -37,7 +37,7 @@ function Lucky6() {
             const payload = {
                 players: gameData?.players
             }
-            const response = await axios.post('http://localhost:3001/lucky-finish', payload);
+            const response = await axios.post('https://bullbullapi.onrender.com/lucky-finish', payload);
             console.log('res', response)
             setGameData(response.data);
             setResults(response.data.results);
@@ -56,7 +56,7 @@ function Lucky6() {
         });
         setIsLoading(true);
         try {
-            const response = await axios.post('http://localhost:3001/evaluate', { cards });
+            const response = await axios.post('https://bullbullapi.onrender.com/evaluate', { cards });
             setEvaluateResult(response.data.result);
         } catch (error) {
             handleApiError(error);
