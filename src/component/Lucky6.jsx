@@ -18,6 +18,7 @@ function Lucky6() {
 
     // Shuffle cards (start game)
     const handleShuffle = async () => {
+        setGameData(null);
         setIsLoading(true);
         try {
             const response = await axios.post('http://localhost:3001/lucky-shuffle');
