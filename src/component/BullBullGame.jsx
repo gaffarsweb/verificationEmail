@@ -5,10 +5,11 @@ import './BullBullGame.css'; // Import the CSS file
 function BullBullGame() {
     const [gameData, setGameData] = useState(null);
     const [results, setResults] = useState([]);
+    const [cardInput, setCardInput] = useState('');
+    const [evaluateResult, setEvaluateResult] = useState(null);
 
     const handleShuffle = async () => {
         try {
-            // const response = await axios.post('http://localhost:3001/shuffle');
             const response = await axios.post('https://bullbullapi.onrender.com/shuffle');
             setGameData(response.data);
         } catch (error) {
@@ -18,11 +19,23 @@ function BullBullGame() {
 
     const handleFinish = async () => {
         try {
-            // const response = await axios.post('http://localhost:3001/finish');
             const response = await axios.post('https://bullbullapi.onrender.com/finish');
             setResults(response.data.results);
         } catch (error) {
             console.error("Error calculating results", error);
+        }
+    };
+
+    const handleEvaluate = async () => {
+        const cards = cardInput.split(',').map(card => {
+            const [value, suit] = card.trim().split(' ');
+            return { value, suit };
+        });
+        try {
+            const response = await axios.post('https://bullbullapi.onrender.com/evaluate', { cards });
+            setEvaluateResult(response.data.result);
+        } catch (error) {
+            console.error("Error evaluating cards", error);
         }
     };
 
@@ -32,18 +45,8 @@ function BullBullGame() {
                 <h1 className="game-title">Bull Bull Poker Game</h1>
 
                 <div className="game-controls">
-                    <button
-                        onClick={handleShuffle}
-                        className="shuffle-button"
-                    >
-                        Shuffle Cards
-                    </button>
-                    <button
-                        onClick={handleFinish}
-                        className="finish-button"
-                    >
-                        Finish Game
-                    </button>
+                    <button onClick={handleShuffle} className="shuffle-button">Shuffle Cards</button>
+                    <button onClick={handleFinish} className="finish-button">Finish Game</button>
                 </div>
 
                 {gameData && (
@@ -89,6 +92,24 @@ function BullBullGame() {
                         ))}
                     </div>
                 )}
+
+                <div className="evaluate-section" style={{display:'flex', flexDirection:"column"}}>
+                    <h2 className="evaluate-title">Evaluate Cards</h2>
+                    <span className='' style={{color:"red", fontSize:"11px"}}> Note : Enter Cards Like (10 Hearts, J Diamonds, 3 Clubs, 2 Spades, Q Hearts)</span>
+                    <input
+                        type="text"
+                        value={cardInput}
+                        onChange={e => setCardInput(e.target.value)}
+                        placeholder="Enter cards (e.g. 10 Hearts, J Diamonds, 3 Clubs, 2 Spades, Q Hearts)"
+                        className="evaluate-input"
+                    />
+                    <button onClick={handleEvaluate} className="evaluate-button">Evaluate</button>
+                    {evaluateResult && (
+                        <div className="evaluate-result">
+                            <h3>Result: {evaluateResult}</h3>
+                        </div>
+                    )}
+                </div>
             </div>
         </div>
     );
