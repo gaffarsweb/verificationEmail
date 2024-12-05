@@ -95,7 +95,7 @@ function BullBullGame() {
 
                 <div className="evaluate-section" style={{display:'flex', flexDirection:"column"}}>
                     <h2 className="evaluate-title">Evaluate Cards</h2>
-                    <span className='' style={{color:"red", fontSize:"11px"}}> Note : Enter Cards Like (10 Hearts, J Diamonds, 3 Clubs, 2 Spades, Q Hearts)</span>
+                    <span className='' style={{color:"red", fontSize:"11px"}}> Note : Enter 5 Cards Like (10 Hearts, J Diamonds, 3 Clubs, 2 Spades, Q Hearts)</span>
                     <input
                         type="text"
                         value={cardInput}
