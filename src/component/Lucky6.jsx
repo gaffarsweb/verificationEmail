@@ -165,13 +165,13 @@ Card ranking from high to low: A>K>Q> J > 10 >9>8>7>6>5>4>3>2.` }</pre>
                                             {/* Show card at position[5] if it exists */}
                                             <div style={{ display: "flex", flexDirection: "column", gap: "20px" }} >
                                                 <div>
-                                                    front : {player?.front}
+                                                    front : {player?.frontMsg}
                                                 </div>
                                                 <div >
-                                                    Middle : {player?.middle}
+                                                    Middle : {player?.middleMsg}
                                                 </div>
                                                 <div>
-                                                    back : {player?.back}
+                                                    back : {player?.backMsg}
                                                 </div>
                                             </div>
                                         </div>
