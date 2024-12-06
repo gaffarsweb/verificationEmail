@@ -86,6 +86,14 @@ function Lucky6() {
         <div className="game-container">
             <div className="game-box">
                 <h1 className="game-title">Lucky Six Poker Game</h1>
+                <pre style={{ color: "black" }}>Rule Of Game:{`
+In Lucky 6, each player receives 6 cards from a standard 52 card deck.
+Each player then has to divide their cards into three poker hands, two containing five cards each, 
+also known as "the middle" and " the back", one containing three cards, known as "the front".
+Valid hand: the back ≥ the middle > the front
+Card type ranking: Royal straight flush > Straight flush > Trips >
+Flush > Straight > Pair > High card
+Card ranking from high to low: A>K>Q> J > 10 >9>8>7>6>5>4>3>2.` }</pre>
                 <span style={{ color: "red" }}>Note: Please carefully click on each player's card name only once. Do not click multiple times. After three clicks, you will see the three cards you selected in position.</span>
                 <div className="game-controls">
                     <button onClick={handleShuffle} className="shuffle-button" disabled={isLoading}>
@@ -155,7 +163,7 @@ function Lucky6() {
                                         <div>
                                             <h4>Result:</h4>
                                             {/* Show card at position[5] if it exists */}
-                                            <div style={{display:"flex", flexDirection:"column", gap:"20px"}} >
+                                            <div style={{ display: "flex", flexDirection: "column", gap: "20px" }} >
                                                 <div>
                                                     front : {player?.front}
                                                 </div>
