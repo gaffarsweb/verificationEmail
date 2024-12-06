@@ -86,7 +86,7 @@ function Lucky6() {
         <div className="game-container">
             <div className="game-box">
                 <h1 className="game-title">Lucky Six Poker Game</h1>
-                <span style={{color:"red"}}>Note: Please carefully click on each player's card name only once. Do not click multiple times. After three clicks, you will see the three cards you selected in position.</span>
+                <span style={{ color: "red" }}>Note: Please carefully click on each player's card name only once. Do not click multiple times. After three clicks, you will see the three cards you selected in position.</span>
                 <div className="game-controls">
                     <button onClick={handleShuffle} className="shuffle-button" disabled={isLoading}>
                         {isLoading ? 'Shuffling...' : 'Shuffle Cards'}
@@ -104,6 +104,7 @@ function Lucky6() {
                                 {gameData.players.map((player, index) => (
                                     <div key={player.id} className="player-card">
                                         <h3 className="player-name">Player {player.id}</h3>
+                                        {player?.crack ? <span style={{ color: 'red' }} className="">Cracked Msg :{player.msg}</span> : null}
                                         {/* <div
                                             style={{ cursor: 'pointer', backgroundColor: 'red', textAlign: 'center', color: 'white' }}
                                             onClick={() => setShowExistedCards(player.id)}
@@ -154,14 +155,16 @@ function Lucky6() {
                                         <div>
                                             <h4>Result:</h4>
                                             {/* Show card at position[5] if it exists */}
-                                            <div>
-                                                front : {player?.front}
-                                            </div>
-                                            <div>
-                                                Middle : {player?.middle}
-                                            </div>
-                                            <div>
-                                                back : {player?.back}
+                                            <div style={{display:"flex", flexDirection:"column", gap:"20px"}} >
+                                                <div>
+                                                    front : {player?.front}
+                                                </div>
+                                                <div >
+                                                    Middle : {player?.middle}
+                                                </div>
+                                                <div>
+                                                    back : {player?.back}
+                                                </div>
                                             </div>
                                         </div>
 
