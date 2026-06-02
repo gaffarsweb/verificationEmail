@@ -44,6 +44,11 @@ const initialState = {
 
   lastSettlement: null,
 
+  myBalance: null,
+  displayedStacks: {},
+  flyingChips: [],
+  floatingDeltas: [],
+
   showTopUpModal: false,
   topUpInfo: null,
 
@@ -65,17 +70,35 @@ function reducer(state, action) {
       const t = action.table || null;
       const phase = t?.phase || state.phase;
       let mySeatId = state.mySeatId;
-      if (t && state.myPlayerId != null) {
-        mySeatId = null;
+      const displayedStacks = { ...state.displayedStacks };
+      if (t) {
+        if (state.myPlayerId != null) {
+          mySeatId = null;
+          for (const sid of Object.keys(t.seats || {})) {
+            const s = t.seats[sid];
+            if (s && s.player && String(s.player.id) === String(state.myPlayerId)) {
+              mySeatId = Number(sid);
+              break;
+            }
+          }
+        }
+        // Seed displayedStacks for seats that don't have one yet (don't clobber
+        // mid-tween values — the animator owns those).
         for (const sid of Object.keys(t.seats || {})) {
           const s = t.seats[sid];
-          if (s && s.player && String(s.player.id) === String(state.myPlayerId)) {
-            mySeatId = Number(sid);
-            break;
+          if (s && displayedStacks[sid] == null) {
+            displayedStacks[sid] = s.stack ?? 0;
           }
         }
       }
-      return { ...state, table: t, phase, mySeatId, currentTurnSeatId: t?.currentTurnSeatId ?? state.currentTurnSeatId };
+      return {
+        ...state,
+        table: t,
+        phase,
+        mySeatId,
+        displayedStacks,
+        currentTurnSeatId: t?.currentTurnSeatId ?? state.currentTurnSeatId,
+      };
     }
 
     case "STATUS":
@@ -214,6 +237,27 @@ function reducer(state, action) {
     case "SETTLEMENT":
       return { ...state, lastSettlement: action.payload };
 
+    case "MY_BALANCE":
+      return { ...state, myBalance: action.balance };
+
+    case "SPAWN_FLYING_CHIP":
+      return { ...state, flyingChips: [...state.flyingChips, action.chip] };
+    case "REMOVE_FLYING_CHIP":
+      return { ...state, flyingChips: state.flyingChips.filter((c) => c.id !== action.id) };
+
+    case "SPAWN_FLOATING_DELTA":
+      return { ...state, floatingDeltas: [...state.floatingDeltas, action.delta] };
+    case "REMOVE_FLOATING_DELTA":
+      return { ...state, floatingDeltas: state.floatingDeltas.filter((d) => d.id !== action.id) };
+
+    case "SET_DISPLAYED_STACK":
+      return {
+        ...state,
+        displayedStacks: { ...state.displayedStacks, [action.seatId]: action.value },
+      };
+    case "SET_DISPLAYED_STACKS":
+      return { ...state, displayedStacks: { ...state.displayedStacks, ...action.stacks } };
+
     case "SHOW_TOPUP":
       return { ...state, showTopUpModal: true, topUpInfo: action.info };
 
@@ -265,11 +309,14 @@ function CardView({ card, onClick, dim, highlighted, small }) {
   );
 }
 
-function SeatBox({ seatId, seat, isMine, isTurn, revealed }) {
+function SeatBox({ seatId, seat, isMine, isTurn, revealed, displayedStack }) {
   const empty = !seat;
   const sittingOut = seat?.sittingOut;
   return (
-    <div className={`nb-seat ${empty ? "empty" : ""} ${isMine ? "mine" : ""} ${isTurn ? "turn" : ""} ${sittingOut ? "out" : ""}`}>
+    <div
+      data-seat-id={seatId}
+      className={`nb-seat ${empty ? "empty" : ""} ${isMine ? "mine" : ""} ${isTurn ? "turn" : ""} ${sittingOut ? "out" : ""}`}
+    >
       <div className="nb-seat-head">
         <span className="nb-seat-id">Seat {seatId}</span>
         {isMine && <span className="nb-badge me">YOU</span>}
@@ -281,7 +328,9 @@ function SeatBox({ seatId, seat, isMine, isTurn, revealed }) {
       ) : (
         <>
           <div className="nb-seat-name">{seat.player?.name?.username || seat.player?.name || `P${seat.player?.id}`}</div>
-          <div className="nb-seat-stack">Stack: {seat.stack ?? 0}</div>
+          <div className="nb-seat-stack">
+            Stack: <b className="nb-stack-num">{displayedStack ?? seat.stack ?? 0}</b>
+          </div>
           {revealed && (
             <div className="nb-seat-reveal">
               <div className="nb-seat-row">
@@ -315,7 +364,6 @@ export default function NiuBullGame() {
   const [tableId, setTableId] = useState("T-001");
   const [playerId, setPlayerId] = useState("");
   const [username, setUsername] = useState("");
-  const [walletBalance, setWalletBalance] = useState(500);
   const [joinedTableId, setJoinedTableId] = useState(null);
   const [topUpAmount, setTopUpAmount] = useState(200);
   const [pickedSeat, setPickedSeat] = useState("");
@@ -342,6 +390,103 @@ export default function NiuBullGame() {
     const id = `${Date.now()}-${Math.random()}`;
     dispatch({ type: "TOAST_PUSH", toast: { id, text, kind } });
     setTimeout(() => dispatch({ type: "TOAST_POP", id }), 3500);
+  };
+
+  // ─── Animation helpers (chip fly + stack count + floating delta text) ───
+
+  const seatCenter = (seatId) => {
+    const el = document.querySelector(`[data-seat-id="${seatId}"]`);
+    if (!el) return null;
+    const r = el.getBoundingClientRect();
+    return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+  };
+
+  const spawnFloatingDeltaAt = (seatId, amount, kind) => {
+    const center = seatCenter(seatId);
+    if (!center) return;
+    const id = `fd-${Date.now()}-${Math.random()}`;
+    dispatch({
+      type: "SPAWN_FLOATING_DELTA",
+      delta: { id, x: center.x, y: center.y, amount, kind },
+    });
+    setTimeout(() => dispatch({ type: "REMOVE_FLOATING_DELTA", id }), 1800);
+  };
+
+  const spawnFlyingChip = (fromSeatId, toSeatId, delay = 0, idx = 0) => {
+    const from = seatCenter(fromSeatId);
+    const to = seatCenter(toSeatId);
+    if (!from || !to) return;
+    const id = `chip-${Date.now()}-${Math.random()}-${idx}`;
+    // small random offset so multiple chips don't perfectly overlap
+    const jitterX = (Math.random() - 0.5) * 28;
+    const jitterY = (Math.random() - 0.5) * 14;
+    setTimeout(() => {
+      dispatch({
+        type: "SPAWN_FLYING_CHIP",
+        chip: {
+          id,
+          fromX: from.x + jitterX,
+          fromY: from.y + jitterY,
+          dx: to.x - from.x,
+          dy: to.y - from.y,
+        },
+      });
+      setTimeout(() => dispatch({ type: "REMOVE_FLYING_CHIP", id }), 1400);
+    }, delay);
+  };
+
+  // Tween a single seat's displayed stack toward a target over `durationMs`.
+  const tweenStack = (seatId, target, durationMs = 1500) => {
+    const startVal =
+      (window.__nbDisplayed && window.__nbDisplayed[seatId]) ??
+      state.displayedStacks?.[seatId] ??
+      state.table?.seats?.[seatId]?.stack ??
+      0;
+    const startTime = Date.now();
+    if (!window.__nbDisplayed) window.__nbDisplayed = {};
+    const step = () => {
+      const t = Math.min(1, (Date.now() - startTime) / durationMs);
+      const eased = 1 - Math.pow(1 - t, 3); // easeOutCubic
+      const value = Math.round(startVal + (target - startVal) * eased);
+      window.__nbDisplayed[seatId] = value;
+      dispatch({ type: "SET_DISPLAYED_STACK", seatId, value });
+      if (t < 1) requestAnimationFrame(step);
+      else window.__nbDisplayed[seatId] = target;
+    };
+    requestAnimationFrame(step);
+  };
+
+  const runSettlementAnimation = (payload) => {
+    if (payload.isPush) return;
+    const winners = payload.winnerCredits || [];
+    const losers = payload.loserDebits || [];
+
+    // Floating "-X" / "+X" texts
+    losers.forEach((l) => spawnFloatingDeltaAt(l.seatId, -l.amount, "loss"));
+    winners.forEach((w) => {
+      setTimeout(() => spawnFloatingDeltaAt(w.seatId, w.amount, "win"), 600);
+    });
+
+    // Chips fly loser → each winner (3 chips per pair, staggered)
+    losers.forEach((l, li) => {
+      winners.forEach((w, wi) => {
+        for (let k = 0; k < 3; k++) {
+          spawnFlyingChip(l.seatId, w.seatId, li * 80 + wi * 60 + k * 130, k);
+        }
+      });
+    });
+
+    // Tween stacks: losers down, winners up
+    const tableSeats = state.table?.seats || {};
+    losers.forEach((l) => {
+      const before = tableSeats[l.seatId]?.stack ?? state.displayedStacks[l.seatId] ?? 0;
+      tweenStack(l.seatId, before - l.amount, 1300);
+    });
+    winners.forEach((w) => {
+      const before = tableSeats[w.seatId]?.stack ?? state.displayedStacks[w.seatId] ?? 0;
+      // Slight delay so the chips appear to "land" before the count jumps up
+      setTimeout(() => tweenStack(w.seatId, before + w.amount, 1300), 500);
+    });
   };
 
   const connect = () => {
@@ -435,15 +580,33 @@ export default function NiuBullGame() {
     socket.on("NIU_WINNER_DETERMINED", ({ winners, isPush }) => dispatch({ type: "WINNERS", winners, isPush }));
     socket.on("NIU_RESULT_REVEAL", ({ winningHand, revealMs }) => {
       dispatch({ type: "REVEAL_BANNER", winningHand });
-      setTimeout(() => dispatch({ type: "HIDE_BANNER" }), revealMs || 2000);
+      // Hold the winner banner longer than the server-reported revealMs (2s)
+      // so players have time to read the outcome. Total ≈ 8s.
+      setTimeout(() => dispatch({ type: "HIDE_BANNER" }), (revealMs || 2000) + 6000);
     });
     socket.on("NIU_SETTLEMENT", (payload) => {
       dispatch({ type: "SETTLEMENT", payload });
-      const me = (payload.winnerCredits || []).find((w) => String(w.playerId) === String(state.myPlayerId || playerId));
-      const lost = (payload.loserDebits || []).find((l) => String(l.playerId) === String(state.myPlayerId || playerId));
+      const me = (payload.winnerCredits || []).find((w) => String(w.playerId) === String(playerId));
+      const lost = (payload.loserDebits || []).find((l) => String(l.playerId) === String(playerId));
       if (me) pushToast(`You won +${me.amount}`);
       else if (lost) pushToast(`You lost -${lost.amount}`, "warn");
       else if (payload.isPush) pushToast("Push round — no winners");
+      // Spawn animation (chips fly loser → winner, stacks roll)
+      setTimeout(() => runSettlementAnimation(payload), 50);
+    });
+
+    socket.on("NIU_CHIPS_UPDATE", ({ balance, delta, source, seatId }) => {
+      dispatch({ type: "MY_BALANCE", balance });
+      console.log(`💰 NIU_CHIPS_UPDATE balance=${balance} delta=${delta} source=${source}`);
+      if (delta != null && delta !== 0) {
+        // Show floating +/- on my seat if known, else over the balance pill.
+        const targetSeatId = seatId ?? state.mySeatId;
+        spawnFloatingDeltaAt(targetSeatId, delta, delta > 0 ? "win" : "loss");
+      }
+      // Trigger a stack tween for my seat toward the new balance.
+      if (seatId != null) {
+        tweenStack(Number(seatId), balance, 1200);
+      }
     });
 
     socket.on("NIU_BALANCE_LOW", ({ balance, minBuyIn, message }) => {
@@ -478,12 +641,10 @@ export default function NiuBullGame() {
   const sitDown = (seatId) => {
     if (!seatId) return pushToast("Pick a seat first", "warn");
     if (!socket) return pushToast("Not connected", "error");
-    console.log(`Sitting down at seat ${seatId} with balance ${walletBalance}`, tableId);
+    // Niu Bull: server reads chips from Redis — no `amount` needed.
     socket.emit("SIT_DOWN", {
       tableId,
       seatId: Number(seatId),
-      amount: Number(walletBalance) || 0,
-      clubId: null,
     });
   };
 
@@ -579,15 +740,9 @@ export default function NiuBullGame() {
               Username (for FETCH_LOBBY_INFO)
               <input value={username} onChange={(e) => setUsername(e.target.value)} placeholder="e.g. Alice" />
             </label>
-            <label>
-              Wallet Balance
-              <input
-                type="number"
-                value={walletBalance}
-                onChange={(e) => setWalletBalance(e.target.value)}
-                min={0}
-              />
-            </label>
+          </div>
+          <div className="nb-hint">
+            Niu Bull reads your chips from Redis (defaults to 100 on first connect). No buy-in is sent at sit-down.
           </div>
           <div className="nb-row">
             <button className="nb-btn primary" onClick={joinTable}>
@@ -605,6 +760,9 @@ export default function NiuBullGame() {
               <div>Round: <b>{state.roundId || "—"}</b></div>
               <div>My Seat: <b>{state.mySeatId ?? "Observer"}</b></div>
               <div>Acting: <b>{state.currentTurnSeatId ?? "—"}</b></div>
+              <div className="nb-mychips">
+                💰 Chips: <b>{state.myBalance ?? "—"}</b>
+              </div>
             </div>
             {state.statusBanner && <div className="nb-banner info">{state.statusBanner}</div>}
             {state.phase === "WAITING" && waitRemaining > 0 && (
@@ -640,6 +798,7 @@ export default function NiuBullGame() {
                     isMine={isMine}
                     isTurn={isTurn}
                     revealed={revealed}
+                    displayedStack={state.displayedStacks[sid]}
                   />
                 );
               })}
@@ -854,6 +1013,31 @@ export default function NiuBullGame() {
         {state.toasts.map((t) => (
           <div key={t.id} className={`nb-toast ${t.kind}`}>
             {t.text}
+          </div>
+        ))}
+      </div>
+
+      {/* FX overlay — flying chips + floating delta text */}
+      <div className="nb-fx-overlay" aria-hidden>
+        {state.flyingChips.map((c) => (
+          <div
+            key={c.id}
+            className="nb-flying-chip"
+            style={{
+              left: `${c.fromX}px`,
+              top: `${c.fromY}px`,
+              "--dx": `${c.dx}px`,
+              "--dy": `${c.dy}px`,
+            }}
+          />
+        ))}
+        {state.floatingDeltas.map((d) => (
+          <div
+            key={d.id}
+            className={`nb-floating-delta ${d.kind}`}
+            style={{ left: `${d.x}px`, top: `${d.y}px` }}
+          >
+            {d.amount > 0 ? `+${d.amount}` : `${d.amount}`}
           </div>
         ))}
       </div>
