@@ -6,6 +6,7 @@ import JoinRoome from './component/joinRooms';
 import PlayGround from './component/playGround';
 import BullBullGame from './component/BullBullGame';
 import Lucky6 from './component/Lucky6';
+import NiuBullGame from './component/NiuBullGame';
 
 function App() {
   return (
@@ -19,6 +20,7 @@ function App() {
         <Route path="/play-ground" element={<PlayGround />} />
         <Route path="/bullbullgame" element={<BullBullGame />} />
         <Route path="/lucky-six-game" element={<Lucky6 />} />
+        <Route path="/niubull-game" element={<NiuBullGame />} />
       </Routes>
     </Router>
   );
