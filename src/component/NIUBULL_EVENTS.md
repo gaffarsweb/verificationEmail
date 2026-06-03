@@ -163,9 +163,15 @@ Quick reference: kab kaunsa event fire hota hai, data me kya aata hai, aur UI pe
 - **UI:** Turn highlight clear, phase = WAITING, currentTurnSeatId = null.
 
 ### `NIU_PLAYER_SITOUT` 🌐
-- **Kab:** Server ne kisi ko force sit-out kara (low balance / queued stand-up).
-- **Data:** `{ seatId, playerId, reason }`.
-- **UI:** Toast + `GET_TABLE` → seat gray-out.
+- **Kab:** Koi player sit-out hua (user-triggered ya server-forced).
+- **Data:** `{ seatId, playerId, reason, table }`.
+  - `reason`: `"USER_REQUEST"` (user ne khud sit-out kara) | `"BALANCE_LOW"` (server forced — top-up prompt).
+- **UI:** Reason ke hisaab se toast. Agar `table` payload me hai to direct snapshot apply, warna `GET_TABLE` emit. Seat gray-out + "Sitting Out" badge.
+
+### `NIU_PLAYER_SITIN` 🌐 🆕
+- **Kab:** Koi player sit-out se wapas sit-in hua.
+- **Data:** `{ seatId, playerId, table }`.
+- **UI:** Toast — *"You are back in"* (if mine) / *"Seat 3 sat back in"*. Snapshot apply, seat active color, gray-out hatao, badge remove.
 
 ### `NIU_PLAYER_KICKED` 🌐
 - **Kab:** Server ne seat clear kar di (stand-up / disconnect / balance-low / inactivity).
@@ -181,8 +187,10 @@ Quick reference: kab kaunsa event fire hota hai, data me kya aata hai, aur UI pe
 
 ### `GAME_ERROR` 🔒 PRIVATE
 - **Kab:** Koi emit validation ya state error.
-- **Data:** `{ tableId, reason, minBuyIn? }`.
-- **UI:** Red toast. Agar `reason` me "Insufficient" hua to auto top-up modal.
+- **Data:** `{ tableId, reason, minBuyIn?, balance? }`.
+- **UI:** Red toast.
+  - **Sit-in low-balance reject** (`minBuyIn` + `balance` dono present): warn toast — *"Sit in failed — need 80 chips (you have 30). Top up to continue."* + top-up modal auto-open with both values.
+  - `reason` me "Insufficient": top-up modal auto-open.
 
 ---
 

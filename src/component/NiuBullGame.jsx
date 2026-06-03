@@ -537,9 +537,27 @@ export default function NiuBullGame() {
       socket.emit("GET_TABLE", { tableId });
     });
     socket.on("PLAYERS_UPDATED", () => socket.emit("GET_TABLE", { tableId }));
-    socket.on("NIU_PLAYER_SITOUT", ({ seatId, reason }) => {
-      pushToast(`Seat ${seatId} sit-out (${reason})`);
-      socket.emit("GET_TABLE", { tableId });
+    socket.on("NIU_PLAYER_SITOUT", ({ seatId, playerId: pid, reason, table }) => {
+      const isMe = pid != null && String(pid) === String(playerId);
+      if (reason === "USER_REQUEST") {
+        pushToast(isMe ? "You are sitting out" : `Seat ${seatId} sat out`);
+      } else if (reason === "BALANCE_LOW") {
+        pushToast(
+          isMe ? "Sat out — balance too low. Top up to play next round." : `Seat ${seatId} sat out (low balance)`,
+          isMe ? "warn" : "info",
+        );
+      } else {
+        pushToast(`Seat ${seatId} sit-out (${reason})`);
+      }
+      if (table) dispatch({ type: "TABLE_SNAPSHOT", table });
+      else socket.emit("GET_TABLE", { tableId });
+    });
+
+    socket.on("NIU_PLAYER_SITIN", ({ seatId, playerId: pid, table }) => {
+      const isMe = pid != null && String(pid) === String(playerId);
+      pushToast(isMe ? "You are back in — playing next round" : `Seat ${seatId} sat back in`);
+      if (table) dispatch({ type: "TABLE_SNAPSHOT", table });
+      else socket.emit("GET_TABLE", { tableId });
     });
     socket.on("NIU_PLAYER_KICKED", ({ seatId, playerId: kickedPlayerId, reason, inactiveRounds }) => {
       const isMe = kickedPlayerId != null && String(kickedPlayerId) === String(playerId);
@@ -629,7 +647,17 @@ export default function NiuBullGame() {
     socket.on("NIU_BALANCE_LOW", ({ balance, minBuyIn, message }) => {
       dispatch({ type: "SHOW_TOPUP", info: { balance, minBuyIn, message } });
     });
-    socket.on("GAME_ERROR", ({ reason, minBuyIn }) => {
+    socket.on("GAME_ERROR", ({ reason, minBuyIn, balance }) => {
+      // Sit-in rejected for low balance: server sends BOTH minBuyIn and balance.
+      if (minBuyIn != null && balance != null) {
+        const msg = `Sit in failed — need ${minBuyIn} chips (you have ${balance}). Top up to continue.`;
+        pushToast(msg, "warn");
+        dispatch({
+          type: "SHOW_TOPUP",
+          info: { balance, minBuyIn, message: msg },
+        });
+        return;
+      }
       pushToast(`Error: ${reason}${minBuyIn ? ` (min ${minBuyIn})` : ""}`, "error");
       if (reason && reason.toLowerCase().includes("insufficient")) {
         dispatch({ type: "SHOW_TOPUP", info: { minBuyIn, message: reason } });
