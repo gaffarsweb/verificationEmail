@@ -39,12 +39,12 @@ const TrumpBtn = ({ setplayaloneShow,roomId ,trumpRound, TrumpSelected,setTrumpS
       <div className="suits">
         {
           cardsLogos && cardsLogos.map((item, index)=>(
-            <button disabled={trumpRound == 0} className="suit" onClick={()=>selectedSymboles(item?.name)}>{item?.value}</button>
+            <button disabled={trumpRound === 0} className="suit" onClick={()=>selectedSymboles(item?.name)}>{item?.value}</button>
           ))
         }
       </div>
       <button onClick={isPassed} className="pass-button">PASS</button>
-      <button disabled={trumpRound == 1} onClick={isSelected} className="pass-button">SELECT</button>
+      <button disabled={trumpRound === 1} onClick={isSelected} className="pass-button">SELECT</button>
     </div>
   );
 };

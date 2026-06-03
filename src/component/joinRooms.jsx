@@ -1,13 +1,11 @@
 import axios from "axios";
 import React, { useEffect, useState } from "react";
-import { useLocation } from "react-router-dom";
 import io from 'socket.io-client';
 import PlayGround from "./playGround";
 
 const JoinRoome = () => {
     const SOCKET_SERVER_URL = "http://localhost:3001";
     const [loading, setLoading] = useState(false);
-    const [ifapiSuccess, setifapiSuccess] = useState(false);
     const [showPlayGround, setShowPlayGround] = useState(false);
     const [TrumpSelected, setTrumpSelected] = useState(false);
     const [userName, setUserName] = useState();
@@ -24,35 +22,17 @@ const JoinRoome = () => {
     const [socketValue, setSocketValue] = useState(null)
     const [partner, setpartner] = useState([])
     const [socketId, setsocketId] = useState('');
-    const [roomTimout, setroomTimout] = useState(0);
+    const [, setroomTimout] = useState(0);
 
     const [teamOne, setteamOne] = useState(null)
     const [teamTwo, setteamTwo] = useState(null)
 
-    const useQuery = () => {
-        return new URLSearchParams(useLocation().search);
-    };
     const users = [
         'eyJhbGciOiJSUzI1NiIsImtpZCI6IlNLMm1tajMxOXFMY0xEUmZjQ09SaG1OUDNPeU5jIiwidHlwIjoiSldUIn0.eyJVc2VySWQiOiJVMm5QallicmZaekRqZmZLd2ZMVkV4ZGRFTVB0IiwiYW1yIjpbInB3ZCJdLCJkcm4iOiJEU1IiLCJlbWFpbCI6InJvZGluYTc4MDlAY2hhaW5kcy5jb20iLCJleHAiOjE3MzM5MDk1MDgsImlhdCI6MTczMTQ5MDMwOCwiaXNzIjoiUDJtbWoyekNqQUNYVnRhSzRodzNlNnNxcTVlRiIsInN1YiI6IlUyblBqWWJyZlp6RGpmZkt3ZkxWRXhkZEVNUHQifQ.eWi7g0iONAGy4nRa9xKxq7MoojvAJXQVRxMIhCLe8koBbNocHdKd9_dXc4NOsJF4kzw0CF4pU4c86nCqNzHEkPNvO9db9wClFqSg1F5qsKBdlvjeBcLCRI0DfIPWYRhjDybKmWYDNO3t5R7jEe-s5R6J1gpE2UyF9B5dl0Tu1x4UXopuH_iWvllfExDxxmR4b_IzkQYPtsY5GQw2W90hvTygbpdAtv9kZKX35cUYKZoDSzORhHnY8H_gZjScbvDCqq-FTkqx1nlt8e8vhGpnDHFQkhoPHL_no8dsrzk-dG5apcVGSlD6T_4AQ965H3F8qLNKdpTZOJEDjkTrdISgFg',
         'eyJhbGciOiJSUzI1NiIsImtpZCI6IlNLMm1tajMxOXFMY0xEUmZjQ09SaG1OUDNPeU5jIiwidHlwIjoiSldUIn0.eyJVc2VySWQiOiJVMm5RQ09JcDRhendBeERDeUNYc0NodWdhdEFzIiwiYW1yIjpbInB3ZCJdLCJkcm4iOiJEU1IiLCJlbWFpbCI6InJleW9saTMwOTNAc2tyYW5rLmNvbSIsImV4cCI6MTczMTMxNzY0MiwiaWF0IjoxNzI4ODk4NDQyLCJpc3MiOiJQMm1tajJ6Q2pBQ1hWdGFLNGh3M2U2c3FxNWVGIiwic3ViIjoiVTJuUUNPSXA0YXp3QXhEQ3lDWHNDaHVnYXRBcyJ9.QwWL23P_MsZNqhhJSsP5hNniKqtsk5zCt-8QP3CegQVTkIC7WCAwwzpudth-6IV3FVdfaF330dgRFt9QFFxOpXrnRn9JziFFQPmtcT9R9fbVE-HgyNrG8CEflXc4A2WksxckeJro_q4-wdBE-yxxDl59KY8MYxdtzWNg9HRO8lgm_Z8PhdUfR2FlrvqPm-AbX5Vl2eBDb9rtojG-8WCUjeAZQ_f7BluRwf2T0nv6VIybABEKVabIYEuF6kCrNslJ6NdBKpIGt0kIsDwJuQODbpuWsJ-OYprN9ZASt7GVd0TlFS8-01eQpZTT4imvaWrvW9Gz1u4Y1llgbaB38gWa8g',
         'eyJhbGciOiJSUzI1NiIsImtpZCI6IlNLMm1tajMxOXFMY0xEUmZjQ09SaG1OUDNPeU5jIiwidHlwIjoiSldUIn0.eyJVc2VySWQiOiJVMm5RQjBhb0ZyNXNpM0hoUXZFQ1pZR1JUUGpnIiwiYW1yIjpbInB3ZCJdLCJkcm4iOiJEU1IiLCJlbWFpbCI6ImZpY2FuZTI0MjNAcGF4bncuY29tIiwiZXhwIjoxNzMxMzE3Njc3LCJpYXQiOjE3Mjg4OTg0NzcsImlzcyI6IlAybW1qMnpDakFDWFZ0YUs0aHczZTZzcXE1ZUYiLCJzdWIiOiJVMm5RQjBhb0ZyNXNpM0hoUXZFQ1pZR1JUUGpnIn0.Xrv487vyUcUwFVz-2Rt-ex3h1YAqzSYk496yRAbM2GvO1S0_p2WEt2UnhBw6BB3Kow-0fxJ_pgvoaTQ3BQdLivCtcRob5i74YsW0p3hNu8zvWBStXwiNAOHEV2MFeU-zT8mkJzINdyeF79Y9gN2cRUtMkidQGP12pFjXFOOyVdYGz6F8k8b6cLTK3ouuvcIIapgAKeS5vL3qMA2L2Z2Z6PPcv75cj3EhXdOos3Pb9TGAX_ULKqrsNblwCZv8QH9pReu5oJCGYhEmDIWfla3LiFpfJQkA-m-26-Ywu-mObJMhu-2phrO_OtMKC0NN4kP_XlECriDibYUYJ2jZ6OnCGw',
         'eyJhbGciOiJSUzI1NiIsImtpZCI6IlNLMm1tajMxOXFMY0xEUmZjQ09SaG1OUDNPeU5jIiwidHlwIjoiSldUIn0.eyJVc2VySWQiOiJVMm5RQVJCTWNhWGxsd0xtaUlHSVBSMkRiRU4wIiwiYW1yIjpbInB3ZCJdLCJkcm4iOiJEU1IiLCJlbWFpbCI6InNvY2lwMzI0NDNAc2NhcmRlbi5jb20iLCJleHAiOjE3MzEzMTc3MTEsImlhdCI6MTcyODg5ODUxMSwiaXNzIjoiUDJtbWoyekNqQUNYVnRhSzRodzNlNnNxcTVlRiIsInN1YiI6IlUyblFBUkJNY2FYbGx3TG1pSUdJUFIyRGJFTjAifQ.I_sOnPSafrl2hutuHfMYghEFtHwWFISgzzckGNo2EymmFNTnT8XSm3zU9ppiAbo8LeqJHn_vABa5meCTT0_J8HHgUxPx1zw9a0ivCOfUDQlKnpkbGTWEZZZmVsyvK0AzltmCXrFBZmgMfsP-08zwnTfR4ZEfRxt-WOlDFHrmyTA7WiiIoYV1VIInpbqx-SMUbbYgH6ehfgoXCEejv3n1buHidpgH1PEzxHDOu754L34_kN6lZ2fgogc2Uk35sB--uONasdy3gU2inhkFDLuHvJgLgocGtsy5U9KkdKQom2nlAD5BKy0J2E0IJwirWunNBgNU6h7PjOhO3cuTzbRviA'
     ];
-    const nameusers = [
-        'sepit62917@paxnw.com',
-        'reyoli3093@skrank.com',
-        'ficane2423@paxnw.com',
-        'socip32443@scarden.com'
-    ]
-    const userIds = [
-        'U2nQCVwr1mFcD4RmIpGJnzSbObfx',
-        'U2nQCOIp4azwAxDCyCXsChugatAs',
-        'U2nQB0aoFr5si3HhQvECZYGRTPjg',
-        'U2nQARBMcaXllwLmiIGIPR2DbEN0'
-    ]
-    const query = useQuery();
-    const gameId = query.get("gameId");
-
     const handleJoinRoom = async () => {
         if (!userName) {
             alert("Please enter a username");
@@ -99,87 +79,6 @@ const JoinRoome = () => {
         } finally {
         }
     };
-    const handleCheckRoomExi = async (userName) => {
-        try {
-            let username = Number(userName)
-            const config = {
-                headers: {
-                    'Authorization': `Bearer ${users[username]}`
-                }
-            };
-            const response = await axios.get(`http://localhost:3001/v1/playing-room/check-room-status`, config);
-            if (response.data.code === 200 || response.data.code === 201) {
-                const roomId = response.data.data.data._id;
-                setroomId(roomId)
-                window.localStorage.setItem('roomId', roomId)
-                if (response.data.data.data?.status === 'playing') {
-                    setShowPlayGround(true);
-                }
-                if (response.data.data.data) {
-                    let selfPlayer = response.data.data.data?.teamOne.find(p => p?.userName === users[username])
-                        || response.data.data.data?.teamTwo.find(p => p?.userName === users[username]);
-                    setSelfPlayer(selfPlayer);
-
-                    let partner = [];
-                    let opponents = [];
-                    setTrumpSelected(response.data.data.data?.isTrumpSelected)
-
-                    if (selfPlayer) {
-                        if (response.data.data.data.teamOne[0]?.userName === selfPlayer.userName) {
-                            setplayerThree(response.data.data.data.teamOne[1]);
-                            setplayerTwo(response.data.data.data.teamTwo[0])
-                            setplayerFour(response.data.data.data.teamTwo[1])
-                        } else if (response.data.data.data.teamOne[1]?.userName === selfPlayer.userName) {
-                            setplayerThree(response.data.data.data.teamOne[0]);
-                            setplayerTwo(response.data.data.data.teamTwo[1])
-                            setplayerFour(response.data.data.data.teamTwo[0])
-                        }
-                        if (response.data.data.data.teamTwo[0]?.userName === selfPlayer.userName) {
-                            setplayerThree(response.data.data.data.teamTwo[1]);
-                            setplayerTwo(response.data.data.data.teamOne[1])
-                            setplayerFour(response.data.data.data.teamOne[0])
-                        } else if (response.data.data.data.teamTwo[1]?.userName === selfPlayer.userName) {
-                            setplayerThree(response.data.data.data.teamTwo[0]);
-                            setplayerTwo(response.data.data.data.teamOne[0])
-                            setplayerFour(response.data.data.data.teamOne[1])
-                        }
-
-                    }
-                    // setTimeout(() => {
-                    //     if (roomTimout !== 0) {
-                    //         console.log('in bot connection', players);
-                    //         for (let i = 0; i < players.length; i++) {
-                    //             newSocket.emit('joinBot', { roomId });
-                    //             console.log('timer out is existed');
-                    //         }
-                    //         setroomTimout(0);
-                    //     }
-                    // }, 60000); // 60000 milliseconds = 60 seconds    
-
-
-                    setteamOne(response.data.data.data.teamOne);
-                    setteamTwo(response.data.data.data.teamTwo);
-                    setplayers(response.data.data.data.players);
-
-                    if (response.data.data.data?.playedCards) {
-                        setPlayedCards(response.data.data.data?.playedCards)
-                    }
-                    if (response.data.data.data?.totalCards) {
-                        setremaningCards(response.data.data.data?.totalCards)
-                    }
-                    if (response.data.data.data?.status == 'playing') {
-                    }
-
-                    // setplayedGame(false)
-
-                }
-            }
-        } catch (error) {
-            console.error("Error joining room:", error);
-        } finally {
-        }
-    };
-
     useEffect(() => {
         // Initialize the socket connection once
         const newSocket = io(SOCKET_SERVER_URL);
@@ -204,8 +103,6 @@ const JoinRoome = () => {
                     || e?.roomData?.teamTwo.find(p => p?.userName === users[username]);
                 setSelfPlayer(selfPlayer);
 
-                let partner = [];
-                let opponents = [];
                 setTrumpSelected(e?.roomData?.isTrumpSelected)
 
                 if (selfPlayer) {
@@ -241,7 +138,7 @@ const JoinRoome = () => {
                 if (e?.roomData?.totalCards) {
                     setremaningCards(e?.roomData?.totalCards)
                 }
-                if (e?.roomData?.status == 'playing') {
+                if (e?.roomData?.status === 'playing') {
                     console.log('playing updated')
                 }
 
@@ -291,6 +188,7 @@ const JoinRoome = () => {
         };
 
 
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [showPlayGround,]);
 
     return (

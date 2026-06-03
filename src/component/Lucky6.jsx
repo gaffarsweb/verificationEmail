@@ -4,10 +4,7 @@ import './Lucky6.css'; // Import the CSS file
 
 function Lucky6() {
     const [gameData, setGameData] = useState(null);
-    const [showExistedCards, setShowExistedCards] = useState(null); // To show cards of a specific player
     const [results, setResults] = useState([]);
-    const [cardInput, setCardInput] = useState('');
-    const [evaluateResult, setEvaluateResult] = useState(null);
     const [isLoading, setIsLoading] = useState(false); // For loading state
 
     // Helper function to handle API call errors
@@ -41,23 +38,6 @@ function Lucky6() {
             console.log('res', response)
             setGameData(response.data);
             setResults(response.data.results);
-        } catch (error) {
-            handleApiError(error);
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    // Evaluate player's hand
-    const handleEvaluate = async () => {
-        const cards = cardInput.split(',').map(card => {
-            const [value, suit] = card.trim().split(' ');
-            return { value, suit };
-        });
-        setIsLoading(true);
-        try {
-            const response = await axios.post('https://bullbullapi.onrender.com/evaluate', { cards });
-            setEvaluateResult(response.data.result);
         } catch (error) {
             handleApiError(error);
         } finally {

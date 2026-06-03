@@ -28,7 +28,7 @@ const PlayerAloneModel = ({ roomId, userName, setplayaloneShow, trumpRound, Trum
     return (
         <div className="card-container" >
             <button onClick={isPassed} className="pass-button">with partner</button>
-            <button disabled={trumpRound == 1} onClick={isSelected} className="pass-button">Play Alone</button>
+            <button disabled={trumpRound === 1} onClick={isSelected} className="pass-button">Play Alone</button>
         </div>
     );
 };
