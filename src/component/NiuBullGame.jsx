@@ -541,8 +541,25 @@ export default function NiuBullGame() {
       pushToast(`Seat ${seatId} sit-out (${reason})`);
       socket.emit("GET_TABLE", { tableId });
     });
-    socket.on("NIU_PLAYER_KICKED", ({ seatId, reason }) => {
-      pushToast(`Seat ${seatId} kicked (${reason})`);
+    socket.on("NIU_PLAYER_KICKED", ({ seatId, playerId: kickedPlayerId, reason, inactiveRounds }) => {
+      const isMe = kickedPlayerId != null && String(kickedPlayerId) === String(playerId);
+      if (reason === "INACTIVITY") {
+        if (isMe) {
+          const rounds = inactiveRounds ?? "a few";
+          pushToast(
+            `You were removed for inactivity (missed ${rounds} round${rounds === 1 ? "" : "s"}). Re-join the table to play again.`,
+            "warn",
+          );
+          // Drop back to the connect screen so the user can re-join cleanly.
+          joinedTableIdGlobal = null;
+          dispatch({ type: "FULL_RESET" });
+          setJoinedTableId(null);
+        } else {
+          pushToast(`Seat ${seatId} kicked for inactivity`);
+        }
+      } else {
+        pushToast(`Seat ${seatId} kicked (${reason})`);
+      }
       socket.emit("GET_TABLE", { tableId });
     });
 

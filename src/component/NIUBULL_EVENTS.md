@@ -168,9 +168,11 @@ Quick reference: kab kaunsa event fire hota hai, data me kya aata hai, aur UI pe
 - **UI:** Toast + `GET_TABLE` → seat gray-out.
 
 ### `NIU_PLAYER_KICKED` 🌐
-- **Kab:** Server ne seat clear kar di (stand-up effect after round-end).
-- **Data:** `{ seatId, playerId, reason }`.
-- **UI:** Toast + `GET_TABLE` → seat empty.
+- **Kab:** Server ne seat clear kar di (stand-up / disconnect / balance-low / inactivity).
+- **Data:** `{ seatId, playerId, reason, inactiveRounds? }`.
+  - `reason`: `"LEFT_TABLE"` | `"STAND_UP"` | `"DISCONNECT"` | `"BALANCE_LOW"` | `"INACTIVITY"`.
+  - `inactiveRounds`: count of missed rounds (only with `INACTIVITY`).
+- **UI:** Toast + `GET_TABLE` → seat empty. Agar `INACTIVITY` aur kicked player = current user, to special toast + connect screen pe wapas drop.
 
 ### `NIU_BALANCE_LOW` 🔒 PRIVATE
 - **Kab:** Settlement ke baad tumhara balance min buy-in se neeche.
