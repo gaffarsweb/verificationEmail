@@ -116,6 +116,13 @@ function reducer(state, action) {
         losers: [],
         winningHand: null,
         showWinnerBanner: false,
+        // Clear last round's arrangement state so the panel doesn't leak
+        // into the wait window.
+        myCards: [],
+        suggestion: null,
+        topSlot: [],
+        bottomSlot: [],
+        usedSuggest: false,
       };
 
     case "CANCEL_COUNTDOWN":
@@ -309,9 +316,13 @@ function CardView({ card, onClick, dim, highlighted, small }) {
   );
 }
 
-function SeatBox({ seatId, seat, isMine, isTurn, revealed, displayedStack }) {
+function SeatBox({ seatId, seat, isMine, isTurn, revealed, displayedStack, maxSittingOutRounds }) {
   const empty = !seat;
   const sittingOut = seat?.sittingOut;
+  const sitOutRounds = seat?.consecutiveSittingOutRounds ?? 0;
+  const inactiveRounds = seat?.consecutiveInactiveRounds ?? 0;
+  const maxSO = maxSittingOutRounds ?? 2;
+  const roundsLeft = sittingOut ? Math.max(0, maxSO - sitOutRounds) : 0;
   return (
     <div
       data-seat-id={seatId}
@@ -331,6 +342,19 @@ function SeatBox({ seatId, seat, isMine, isTurn, revealed, displayedStack }) {
           <div className="nb-seat-stack">
             Stack: <b className="nb-stack-num">{displayedStack ?? seat.stack ?? 0}</b>
           </div>
+
+          {sittingOut && (
+            <div className="nb-seat-leaving">
+              {roundsLeft === 0
+                ? "⚠ Leaving after this round"
+                : `Leaving in ${roundsLeft} round${roundsLeft === 1 ? "" : "s"}`}
+            </div>
+          )}
+
+          {!sittingOut && inactiveRounds === 1 && (
+            <div className="nb-seat-warn">⚠ One more timeout = stand-up</div>
+          )}
+
           {revealed && (
             <div className="nb-seat-reveal">
               <div className="nb-seat-row">
@@ -540,7 +564,11 @@ export default function NiuBullGame() {
     socket.on("NIU_PLAYER_SITOUT", ({ seatId, playerId: pid, reason, table }) => {
       const isMe = pid != null && String(pid) === String(playerId);
       if (reason === "USER_REQUEST") {
-        pushToast(isMe ? "You are sitting out" : `Seat ${seatId} sat out`);
+        pushToast(
+          isMe
+            ? "Sit-out: you'll keep playing for 2 more rounds, then auto-leave the seat. Sit-in to cancel."
+            : `Seat ${seatId} will leave after 2 rounds`,
+        );
       } else if (reason === "BALANCE_LOW") {
         pushToast(
           isMe ? "Sat out — balance too low. Top up to play next round." : `Seat ${seatId} sat out (low balance)`,
@@ -555,29 +583,49 @@ export default function NiuBullGame() {
 
     socket.on("NIU_PLAYER_SITIN", ({ seatId, playerId: pid, table }) => {
       const isMe = pid != null && String(pid) === String(playerId);
-      pushToast(isMe ? "You are back in — playing next round" : `Seat ${seatId} sat back in`);
+      pushToast(
+        isMe
+          ? "Sit-in: stand-up timer cancelled, continuing normally"
+          : `Seat ${seatId} sat back in (cancelled their leave timer)`,
+      );
       if (table) dispatch({ type: "TABLE_SNAPSHOT", table });
       else socket.emit("GET_TABLE", { tableId });
     });
-    socket.on("NIU_PLAYER_KICKED", ({ seatId, playerId: kickedPlayerId, reason, inactiveRounds }) => {
+    socket.on("NIU_PLAYER_KICKED", ({ seatId, playerId: kickedPlayerId, reason, inactiveRounds, sittingOutRounds }) => {
       const isMe = kickedPlayerId != null && String(kickedPlayerId) === String(playerId);
+
       if (reason === "INACTIVITY") {
         if (isMe) {
-          const rounds = inactiveRounds ?? "a few";
+          const r = inactiveRounds ?? 2;
           pushToast(
-            `You were removed for inactivity (missed ${rounds} round${rounds === 1 ? "" : "s"}). Re-join the table to play again.`,
+            `You were removed for inactivity (missed ${r} turn${r === 1 ? "" : "s"}). Re-join the table to play again.`,
             "warn",
           );
-          // Drop back to the connect screen so the user can re-join cleanly.
           joinedTableIdGlobal = null;
           dispatch({ type: "FULL_RESET" });
           setJoinedTableId(null);
         } else {
           pushToast(`Seat ${seatId} kicked for inactivity`);
         }
+      } else if (reason === "SIT_OUT_TIMEOUT") {
+        if (isMe) {
+          const r = sittingOutRounds ?? 2;
+          pushToast(
+            `Your sit-out window ended (${r} rounds). You've been removed from the seat — re-join to play again.`,
+            "warn",
+          );
+          joinedTableIdGlobal = null;
+          dispatch({ type: "FULL_RESET" });
+          setJoinedTableId(null);
+        } else {
+          pushToast(`Seat ${seatId} removed (sit-out timeout)`);
+        }
+      } else if (reason === "STAND_UP" || reason === "DISCONNECT" || reason === "LEFT_TABLE") {
+        // User-initiated or expected — no noisy toast.
       } else {
         pushToast(`Seat ${seatId} kicked (${reason})`);
       }
+
       socket.emit("GET_TABLE", { tableId });
     });
 
@@ -809,6 +857,24 @@ export default function NiuBullGame() {
                 💰 Chips: <b>{state.myBalance ?? "—"}</b>
               </div>
             </div>
+            {state.mySeatId != null && state.table?.seats?.[state.mySeatId] && (() => {
+              const mySeat = state.table.seats[state.mySeatId];
+              if (mySeat.sittingOut) {
+                const max = state.table?.maxSittingOutRounds || 2;
+                const left = Math.max(0, max - (mySeat.consecutiveSittingOutRounds || 0));
+                return (
+                  <div className="nb-my-countdown danger">
+                    Sit-out: {left} round{left === 1 ? "" : "s"} left before auto-leave
+                  </div>
+                );
+              }
+              if ((mySeat.consecutiveInactiveRounds || 0) === 1) {
+                return (
+                  <div className="nb-my-countdown warn">⚠ One more timeout = stand-up</div>
+                );
+              }
+              return null;
+            })()}
             {state.statusBanner && <div className="nb-banner info">{state.statusBanner}</div>}
             {state.phase === "WAITING" && waitRemaining > 0 && (
               <div className="nb-banner wait">Round starts in {fmtTime(waitRemaining)}</div>
@@ -844,6 +910,7 @@ export default function NiuBullGame() {
                     isTurn={isTurn}
                     revealed={revealed}
                     displayedStack={state.displayedStacks[sid]}
+                    maxSittingOutRounds={state.table?.maxSittingOutRounds || 2}
                   />
                 );
               })}
@@ -887,7 +954,7 @@ export default function NiuBullGame() {
             </div>
           </section>
 
-          {state.mySeatId != null && state.myCards.length > 0 && (
+          {state.mySeatId != null && state.myCards.length > 0 && !state.revealedHands[state.mySeatId] && (
             <section className="nb-arrange">
               <h2>Your Hand — Arrange (Top: 2, Bottom: 3)</h2>
 

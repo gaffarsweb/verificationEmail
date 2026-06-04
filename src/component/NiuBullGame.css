@@ -457,3 +457,44 @@ h2 {
 
 /* Briefly highlight the stack number when it animates */
 .nb-seat.mine .nb-stack-num { color: #ffd966; }
+
+/* Sit-out countdown / inactivity warning badges */
+.nb-seat-leaving {
+  margin-top: 4px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(255, 87, 87, 0.85);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  text-align: center;
+}
+.nb-seat-warn {
+  margin-top: 4px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(255, 201, 60, 0.9);
+  color: #000;
+  font-size: 11px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.nb-my-countdown {
+  margin-top: 6px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
+}
+.nb-my-countdown.danger {
+  background: rgba(255, 87, 87, 0.2);
+  border: 1px solid rgba(255, 87, 87, 0.6);
+  color: #ff7575;
+}
+.nb-my-countdown.warn {
+  background: rgba(255, 201, 60, 0.15);
+  border: 1px solid rgba(255, 201, 60, 0.6);
+  color: #ffc93c;
+}
