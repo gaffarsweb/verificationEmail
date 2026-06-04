@@ -594,38 +594,36 @@ export default function NiuBullGame() {
     socket.on("NIU_PLAYER_KICKED", ({ seatId, playerId: kickedPlayerId, reason, inactiveRounds, sittingOutRounds }) => {
       const isMe = kickedPlayerId != null && String(kickedPlayerId) === String(playerId);
 
+      // Stand-up only clears the seat — user remains AT the table as an observer
+      // and can re-sit on any empty seat. We never disconnect / FULL_RESET here.
       if (reason === "INACTIVITY") {
         if (isMe) {
           const r = inactiveRounds ?? 2;
           pushToast(
-            `You were removed for inactivity (missed ${r} turn${r === 1 ? "" : "s"}). Re-join the table to play again.`,
+            `Stood up for inactivity (missed ${r} turn${r === 1 ? "" : "s"}). You're now an observer — pick an empty seat to play again.`,
             "warn",
           );
-          joinedTableIdGlobal = null;
-          dispatch({ type: "FULL_RESET" });
-          setJoinedTableId(null);
         } else {
-          pushToast(`Seat ${seatId} kicked for inactivity`);
+          pushToast(`Seat ${seatId} stood up (inactivity)`);
         }
       } else if (reason === "SIT_OUT_TIMEOUT") {
         if (isMe) {
           const r = sittingOutRounds ?? 2;
           pushToast(
-            `Your sit-out window ended (${r} rounds). You've been removed from the seat — re-join to play again.`,
+            `Sit-out window ended (${r} rounds). You're now an observer — pick a seat to re-join the action.`,
             "warn",
           );
-          joinedTableIdGlobal = null;
-          dispatch({ type: "FULL_RESET" });
-          setJoinedTableId(null);
         } else {
-          pushToast(`Seat ${seatId} removed (sit-out timeout)`);
+          pushToast(`Seat ${seatId} stood up (sit-out timeout)`);
         }
       } else if (reason === "STAND_UP" || reason === "DISCONNECT" || reason === "LEFT_TABLE") {
         // User-initiated or expected — no noisy toast.
       } else {
-        pushToast(`Seat ${seatId} kicked (${reason})`);
+        pushToast(`Seat ${seatId} stood up (${reason})`);
       }
 
+      // The next snapshot will set mySeatId = null naturally → UI flips to
+      // observer mode (Sit Down dropdown becomes available again).
       socket.emit("GET_TABLE", { tableId });
     });
 
