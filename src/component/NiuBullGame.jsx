@@ -392,6 +392,11 @@ export default function NiuBullGame() {
   const [topUpAmount, setTopUpAmount] = useState(200);
   const [pickedSeat, setPickedSeat] = useState("");
 
+  // Buy-in flow (replaces old Redis chip read)
+  const [buyInAmount, setBuyInAmount] = useState(100);
+  const [clubId, setClubId] = useState("");
+  const [jwtToken, setJwtToken] = useState("");
+
   const [state, dispatch] = useReducer(reducer, initialState);
 
   const [tickNow, setTickNow] = useState(Date.now());
@@ -693,17 +698,26 @@ export default function NiuBullGame() {
     socket.on("NIU_BALANCE_LOW", ({ balance, minBuyIn, message }) => {
       dispatch({ type: "SHOW_TOPUP", info: { balance, minBuyIn, message } });
     });
-    socket.on("GAME_ERROR", ({ reason, minBuyIn, balance }) => {
-      // Sit-in rejected for low balance: server sends BOTH minBuyIn and balance.
+    socket.on("GAME_ERROR", ({ reason, minBuyIn, balance, msg }) => {
+      // Sit-in / sit-down rejected for low balance — server sends BOTH minBuyIn AND balance.
       if (minBuyIn != null && balance != null) {
-        const msg = `Sit in failed — need ${minBuyIn} chips (you have ${balance}). Top up to continue.`;
-        pushToast(msg, "warn");
-        dispatch({
-          type: "SHOW_TOPUP",
-          info: { balance, minBuyIn, message: msg },
-        });
+        const m = `Sit failed — need ${minBuyIn} chips (you have ${balance}). Top up to continue.`;
+        pushToast(m, "warn");
+        dispatch({ type: "SHOW_TOPUP", info: { balance, minBuyIn, message: m } });
         return;
       }
+
+      // Friendly mapping for backend's technical reason codes.
+      const friendly = {
+        chip_deduction_failed: "Chip deduction failed — please retry or contact support.",
+        coin_deduction_failed: `Coin deduction failed${msg ? `: ${msg}` : ""}.`,
+        Invalid_Token: "Session expired — please log in again.",
+      };
+      if (friendly[reason]) {
+        pushToast(friendly[reason], "error");
+        return;
+      }
+
       pushToast(`Error: ${reason}${minBuyIn ? ` (min ${minBuyIn})` : ""}`, "error");
       if (reason && reason.toLowerCase().includes("insufficient")) {
         dispatch({ type: "SHOW_TOPUP", info: { minBuyIn, message: reason } });
@@ -732,10 +746,20 @@ export default function NiuBullGame() {
   const sitDown = (seatId) => {
     if (!seatId) return pushToast("Pick a seat first", "warn");
     if (!socket) return pushToast("Not connected", "error");
-    // Niu Bull: server reads chips from Redis — no `amount` needed.
-    socket.emit("SIT_DOWN", {
+
+    const amt = Number(buyInAmount);
+    if (!amt || amt <= 0) {
+      return pushToast("Buy-in amount required (> 0)", "warn");
+    }
+
+    // Niu Bull now uses the same cash flow as other games — amount is
+    // deducted at sit-down and refunded on leave.
+    socket.emit("SIT_DOWN_CLUB_TABLE", {
       tableId,
       seatId: Number(seatId),
+      amount: amt,
+      clubId: clubId.trim() || null,
+      token: jwtToken.trim() || undefined,
     });
   };
 
@@ -831,9 +855,29 @@ export default function NiuBullGame() {
               Username (for FETCH_LOBBY_INFO)
               <input value={username} onChange={(e) => setUsername(e.target.value)} placeholder="e.g. Alice" />
             </label>
+            <label>
+              Buy-in Amount (deducted at sit-down)
+              <input
+                type="number"
+                value={buyInAmount}
+                onChange={(e) => setBuyInAmount(e.target.value)}
+                min={1}
+                placeholder="e.g. 100"
+              />
+            </label>
+            <label>
+              Club ID (for club/union tables — leave blank for lobby)
+              <input value={clubId} onChange={(e) => setClubId(e.target.value)} placeholder="optional" />
+            </label>
+            <label>
+              JWT Token (required for lobby/coin tables)
+              <input value={jwtToken} onChange={(e) => setJwtToken(e.target.value)} placeholder="optional JWT" />
+            </label>
           </div>
           <div className="nb-hint">
-            Niu Bull reads your chips from Redis (defaults to 100 on first connect). No buy-in is sent at sit-down.
+            Niu Bull ab same cash flow follow karta hai jaise baaki games — buy-in aapke
+            wallet (memberChips for club/union, coins for lobby) se sit-down pe deduct hoga
+            aur <b>leave pe refund</b> mil jayega. Lobby (coin) tables ke liye JWT token zaroori hai.
           </div>
           <div className="nb-row">
             <button className="nb-btn primary" onClick={joinTable}>
