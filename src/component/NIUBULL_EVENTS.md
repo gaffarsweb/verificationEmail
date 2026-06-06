@@ -37,9 +37,13 @@ Quick reference: kab kaunsa event fire hota hai, data me kya aata hai, aur UI pe
 - **UI:** Sit Out / Sit In buttons (seated user ke liye).
 
 ### `PLAYER_CHIP_TOP_UP`
-- **Kab:** Top Up modal me amount enter karke confirm. Payload: `{ tableId, amount }`.
-- **Kya:** Chips add karna (low balance ke baad).
-- **UI:** Top-up modal me Top Up button.
+- **Kab:** Top Up modal me amount enter karke confirm (auto low-balance ya manual "Top Up" button).
+- **Payload:** `{ tableId, amount, clubId, token }`.
+  - `amount` = stack me ADD hone wale chips (final stack nahi).
+  - `clubId` = club/union table ke liye (lobby pe `null`).
+  - `token` = lobby/coin table ke liye JWT (club pe optional).
+- **Kya:** Server pehle wallet se deduct karta hai (club: memberChips atomic; lobby: coins via JWT), phir seat ka stack badhata hai.
+- **UI:** Top-up modal me Top Up button, ya actions row me manual Top Up button.
 
 ### `NIU_REQUEST_SUGGEST`
 - **Kab:** 💡 Suggest button click (sirf apni turn me). Payload: `{ tableId }`.
@@ -150,6 +154,11 @@ Quick reference: kab kaunsa event fire hota hai, data me kya aata hai, aur UI pe
   - **Stack tween:** `displayedStacks` easeOutCubic se purane → naye value pe 1.3s me animate.
   - Last Settlement panel me pot/rake/credits/debits list.
 
+### `BUY_RAKE` 🔒 PRIVATE (club only)
+- **Kab:** `PLAYER_CHIP_TOP_UP` success — sirf club/union table pe.
+- **Data:** `{ balance }` (naya memberChips wallet balance).
+- **UI:** 💰 Chips pill update + toast — *"Wallet balance: 940"*.
+
 ### `NIU_CHIPS_UPDATE` 🔒 PRIVATE
 - **Kab:** Tumhare chips change huye — sit-down/settlement/top-up.
 - **Data:** `{ tableId, playerId, seatId, balance, delta, txId, source, eventTimestamp }`.
@@ -191,6 +200,13 @@ Quick reference: kab kaunsa event fire hota hai, data me kya aata hai, aur UI pe
 - **UI:** Red toast.
   - **Sit-in low-balance reject** (`minBuyIn` + `balance` dono present): warn toast — *"Sit in failed — need 80 chips (you have 30). Top up to continue."* + top-up modal auto-open with both values.
   - `reason` me "Insufficient": top-up modal auto-open.
+  - **Top-up reason codes** (friendly toast map):
+    - `invalid_amount` — amount ≤ 0.
+    - `insufficient_balance` — wallet me itne chips nahi (`balance` ke saath aata hai → modal re-open).
+    - `not_club_member` — is club ka member nahi.
+    - `coin_deduction_failed` — lobby coin deduct fail (JWT/REST).
+    - `chip_deduction_failed` — club chip deduct fail.
+    - `Invalid_Token` — JWT expired.
 
 ---
 

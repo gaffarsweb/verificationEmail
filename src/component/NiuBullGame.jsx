@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useReducer, useState } from "react";
 import { io } from "socket.io-client";
 import "./NiuBullGame.css";
 
-const SOCKET_URL = "https://poker-api.testsdlc.in";
+const SOCKET_URL = "http://localhost:4000";
 
 // Module-level socket singleton — survives re-renders without a useRef.
 let socket = null;
@@ -695,6 +695,13 @@ export default function NiuBullGame() {
       }
     });
 
+    // Club-only: top-up succeeded, server reports new memberChips wallet balance.
+    socket.on("BUY_RAKE", (payload = {}) => {
+      const bal = payload.balance ?? payload.memberChips ?? payload.wallet ?? null;
+      if (bal != null) dispatch({ type: "MY_BALANCE", balance: bal });
+      pushToast(bal != null ? `Wallet balance: ${bal}` : "Top-up confirmed");
+    });
+
     socket.on("NIU_BALANCE_LOW", ({ balance, minBuyIn, message }) => {
       dispatch({ type: "SHOW_TOPUP", info: { balance, minBuyIn, message } });
     });
@@ -709,12 +716,20 @@ export default function NiuBullGame() {
 
       // Friendly mapping for backend's technical reason codes.
       const friendly = {
+        invalid_amount: "Invalid amount — enter a value greater than 0.",
+        insufficient_balance: `Insufficient wallet balance${balance != null ? ` (you have ${balance})` : ""}.`,
+        not_club_member: "You are not a member of this club.",
         chip_deduction_failed: "Chip deduction failed — please retry or contact support.",
         coin_deduction_failed: `Coin deduction failed${msg ? `: ${msg}` : ""}.`,
         Invalid_Token: "Session expired — please log in again.",
       };
       if (friendly[reason]) {
         pushToast(friendly[reason], "error");
+        // Wallet too low / not a member — keep the top-up modal available with
+        // the latest balance so the player can retry after funding.
+        if ((reason === "insufficient_balance" || reason === "not_club_member") && balance != null) {
+          dispatch({ type: "SHOW_TOPUP", info: { balance, minBuyIn, message: friendly[reason] } });
+        }
         return;
       }
 
@@ -776,9 +791,29 @@ export default function NiuBullGame() {
   const topUp = () => {
     const amt = Number(topUpAmount);
     if (!amt || amt <= 0) return pushToast("Top up amount must be > 0", "warn");
-    socket?.emit("PLAYER_CHIP_TOP_UP", { tableId, amount: amt });
+    // amount = chips to ADD to stack. Server deducts from wallet FIRST
+    // (club: memberChips atomic; lobby: coins via JWT), then tops up the seat.
+    // clubId/token reuse the same credentials entered at sit-down.
+    socket?.emit("PLAYER_CHIP_TOP_UP", {
+      tableId,
+      amount: amt,
+      clubId: clubId.trim() || null,
+      token: jwtToken.trim() || undefined,
+    });
     dispatch({ type: "HIDE_TOPUP" });
   };
+
+  // Manually open the top-up modal (testing / voluntary rebuy) without waiting
+  // for the server's NIU_BALANCE_LOW trigger.
+  const openTopUp = () =>
+    dispatch({
+      type: "SHOW_TOPUP",
+      info: {
+        balance: state.myBalance,
+        minBuyIn: state.table?.minBuyIn ?? null,
+        message: "Add chips to your stack.",
+      },
+    });
 
   const requestSuggest = () => socket?.emit("NIU_REQUEST_SUGGEST", { tableId });
 
@@ -986,6 +1021,9 @@ export default function NiuBullGame() {
               </button>
               <button className="nb-btn" onClick={sittingIn} disabled={state.mySeatId == null}>
                 Sit In
+              </button>
+              <button className="nb-btn" onClick={openTopUp} disabled={state.mySeatId == null}>
+                Top Up
               </button>
               <button className="nb-btn warn" onClick={leaveTable}>
                 Leave Table
