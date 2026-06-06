@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useReducer, useState } from "react";
 import { io } from "socket.io-client";
 import "./NiuBullGame.css";
 
-const SOCKET_URL = "http://localhost:4000";
+const SOCKET_URL = "https://poker-api.testsdlc.in";
 
 // Module-level socket singleton — survives re-renders without a useRef.
 let socket = null;
