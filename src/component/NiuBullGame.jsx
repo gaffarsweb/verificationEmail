@@ -544,7 +544,13 @@ export default function NiuBullGame() {
 
     socket.on("RECEIVE_LOBBY_INFO", () => {
       pushToast("Lobby registered — joining table...");
-      if (joinedTableIdGlobal) socket.emit("JOIN_TABLE", joinedTableIdGlobal);
+      if (joinedTableIdGlobal) {
+        socket.emit("JOIN_TABLE", joinedTableIdGlobal);
+        // Native client always follows JOIN_TABLE with an explicit GET_TABLE
+        // (bullBullGame.js:2528-2533) to guarantee an initial snapshot even if
+        // TABLE_UPDATED is missed in the join race.
+        socket.emit("GET_TABLE", { tableId: joinedTableIdGlobal });
+      }
     });
     socket.on("disconnect", () => {
       dispatch({ type: "CONNECTED", value: false });
@@ -753,6 +759,9 @@ export default function NiuBullGame() {
       // JOIN_TABLE is emitted in the RECEIVE_LOBBY_INFO handler after registration.
     } else if (socket.connected) {
       socket.emit("FETCH_LOBBY_INFO", username.trim() || `Player_${playerId.trim()}`);
+      // Same as native — always ask for the current snapshot so we don't depend
+      // on the lobby->join roundtrip producing a TABLE_UPDATED in time.
+      socket.emit("GET_TABLE", { tableId });
     }
   };
 
