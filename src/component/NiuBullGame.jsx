@@ -1,8 +1,17 @@
-import React, { useEffect, useMemo, useReducer, useState } from "react";
+import React, { useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { io } from "socket.io-client";
 import "./NiuBullGame.css";
+import Chat from "./Chat";
+import PlayerProfileModal from "./PlayerProfileModal";
+import {
+  initializeSocketChat,
+  disconnectSocketChat,
+  joinGameChat,
+  sendChatMessage as emitChatMessage,
+  subscribeChatMessages,
+} from "./chatConnect";
 
-const SOCKET_URL = "https://poker-api.testsdlc.in";
+const SOCKET_URL = "http://localhost:4000";
 
 // Module-level socket singleton — survives re-renders without a useRef.
 let socket = null;
@@ -53,6 +62,14 @@ const initialState = {
   topUpInfo: null,
 
   toasts: [],
+
+  // Chat — full thread (text only, web). `liveBubbles[playerId]` is the
+  // transient message shown above that player's seat for ~2.5s.
+  chatMessages: [],
+  liveBubbles: {},
+  showChatPanel: false,
+  profilePopup: null,
+  chatMention: null,
 };
 
 function reducer(state, action) {
@@ -280,6 +297,37 @@ function reducer(state, action) {
     case "FULL_RESET":
       return { ...initialState, myPlayerId: state.myPlayerId, connected: state.connected };
 
+    case "CHAT_RECEIVE": {
+      const m = action.message;
+      if (!m) return state;
+      // De-dupe by _id (server-issued) or a (userId, createdAt) pair.
+      const key = m._id || `${m.userId}-${m.createdAt}-${m.message}`;
+      const exists = state.chatMessages.some(
+        (x) => (x._id || `${x.userId}-${x.createdAt}-${x.message}`) === key
+      );
+      const nextList = exists ? state.chatMessages : [...state.chatMessages, m];
+      const nextBubbles = m.userId
+        ? { ...state.liveBubbles, [m.userId]: m }
+        : state.liveBubbles;
+      return { ...state, chatMessages: nextList, liveBubbles: nextBubbles };
+    }
+    case "CHAT_CLEAR_BUBBLE": {
+      if (!state.liveBubbles[action.userId]) return state;
+      const next = { ...state.liveBubbles };
+      delete next[action.userId];
+      return { ...state, liveBubbles: next };
+    }
+    case "CHAT_OPEN":
+      return { ...state, showChatPanel: true };
+    case "CHAT_CLOSE":
+      return { ...state, showChatPanel: false, chatMention: null };
+    case "CHAT_SET_MENTION":
+      return { ...state, chatMention: action.name };
+    case "PROFILE_OPEN":
+      return { ...state, profilePopup: action.player };
+    case "PROFILE_CLOSE":
+      return { ...state, profilePopup: null };
+
     default:
       return state;
   }
@@ -316,18 +364,35 @@ function CardView({ card, onClick, dim, highlighted, small }) {
   );
 }
 
-function SeatBox({ seatId, seat, isMine, isTurn, revealed, displayedStack, maxSittingOutRounds }) {
+function SeatBox({
+  seatId,
+  seat,
+  isMine,
+  isTurn,
+  revealed,
+  displayedStack,
+  maxSittingOutRounds,
+  chatBubble,
+  onClickPlayer,
+}) {
   const empty = !seat;
   const sittingOut = seat?.sittingOut;
   const sitOutRounds = seat?.consecutiveSittingOutRounds ?? 0;
   const inactiveRounds = seat?.consecutiveInactiveRounds ?? 0;
   const maxSO = maxSittingOutRounds ?? 2;
   const roundsLeft = sittingOut ? Math.max(0, maxSO - sitOutRounds) : 0;
+  const canClickPlayer = !empty && !isMine && !!onClickPlayer;
   return (
     <div
       data-seat-id={seatId}
       className={`nb-seat ${empty ? "empty" : ""} ${isMine ? "mine" : ""} ${isTurn ? "turn" : ""} ${sittingOut ? "out" : ""}`}
     >
+      {chatBubble && (
+        <div className="nb-seat-bubble">
+          <span className="nb-seat-bubble-text">{chatBubble.message}</span>
+          <span className="nb-seat-bubble-tail" />
+        </div>
+      )}
       <div className="nb-seat-head">
         <span className="nb-seat-id">Seat {seatId}</span>
         {isMine && <span className="nb-badge me">YOU</span>}
@@ -338,7 +403,28 @@ function SeatBox({ seatId, seat, isMine, isTurn, revealed, displayedStack, maxSi
         <div className="nb-seat-empty">Empty</div>
       ) : (
         <>
-          <div className="nb-seat-name">{seat.player?.name?.username || seat.player?.name || `P${seat.player?.id}`}</div>
+          <div
+            className={`nb-seat-name ${canClickPlayer ? "clickable" : ""}`}
+            onClick={
+              canClickPlayer
+                ? () =>
+                    onClickPlayer({
+                      id: seat.player?.id,
+                      name:
+                        seat.player?.name?.username ||
+                        seat.player?.name ||
+                        `P${seat.player?.id}`,
+                      profilePic:
+                        seat.player?.profilePic || seat.player?.avatar || null,
+                      stack: seat.stack,
+                      seatId,
+                    })
+                : undefined
+            }
+            title={canClickPlayer ? "View profile" : undefined}
+          >
+            {seat.player?.name?.username || seat.player?.name || `P${seat.player?.id}`}
+          </div>
           <div className="nb-seat-stack">
             Stack: <b className="nb-stack-num">{displayedStack ?? seat.stack ?? 0}</b>
           </div>
@@ -856,8 +942,89 @@ export default function NiuBullGame() {
         socket = null;
         joinedTableIdGlobal = null;
       }
+      disconnectSocketChat();
     };
   }, []);
+
+  // ── Chat: open the chat socket as soon as we know our playerId, then
+  // JOIN_GAME_CHAT once joined to a table. Mirrors the Lucky Six / Bull-Bull
+  // pattern from the RN app — separate socket so chat lifecycle is independent
+  // from the game socket.
+  useEffect(() => {
+    if (!state.myPlayerId || !joinedTableId) return;
+    const chat = initializeSocketChat(state.myPlayerId);
+    if (!chat) return;
+    const join = () => joinGameChat(joinedTableId);
+    if (chat.connected) {
+      setTimeout(join, 150);
+    } else {
+      chat.once("connect", () => setTimeout(join, 150));
+    }
+  }, [state.myPlayerId, joinedTableId]);
+
+  // Subscribe to every RECEIVE_MESSAGES — push into reducer; a transient
+  // bubble auto-clears after 2.5s like the RN seat bubble.
+  const bubbleTimers = useRef({});
+  useEffect(() => {
+    const off = subscribeChatMessages((msg) => {
+      if (!msg) return;
+      dispatch({ type: "CHAT_RECEIVE", message: msg });
+      if (msg.userId != null) {
+        const uid = msg.userId;
+        clearTimeout(bubbleTimers.current[uid]);
+        bubbleTimers.current[uid] = setTimeout(() => {
+          dispatch({ type: "CHAT_CLEAR_BUBBLE", userId: uid });
+        }, 2500);
+      }
+    });
+    return () => {
+      off();
+      Object.values(bubbleTimers.current).forEach(clearTimeout);
+      bubbleTimers.current = {};
+    };
+  }, []);
+
+  // Outbound send — stamp with the bits the chat server needs. The server
+  // broadcasts the saved message back via RECEIVE_MESSAGES (with its own _id /
+  // createdAt / profilePic), and our subscriber appends it, so we do NOT
+  // echo locally — that would duplicate every message we send.
+  const sendChat = (payload) => {
+    emitChatMessage({
+      ...payload,
+      tableId: joinedTableId,
+      userId: state.myPlayerId,
+      name: username || `Player_${state.myPlayerId}`,
+    });
+  };
+
+  // Build "currentPlayers" list for the mention popup — every seated player
+  // except empty seats.
+  const currentPlayers = useMemo(() => {
+    const seatsMap = state.table?.seats || {};
+    return Object.keys(seatsMap)
+      .map((sid) => {
+        const s = seatsMap[sid];
+        if (!s || !s.player) return null;
+        return {
+          id: s.player.id,
+          name: s.player.name?.username || s.player.name || `P${s.player.id}`,
+          displayName: s.player.name?.username || s.player.name || `P${s.player.id}`,
+          profilePic: s.player.profilePic || s.player.avatar || null,
+          stack: s.stack,
+          seatId: Number(sid),
+        };
+      })
+      .filter(Boolean);
+  }, [state.table]);
+
+  const openPlayerProfile = (player) => {
+    if (!player || !player.id) return;
+    if (String(player.id) === String(state.myPlayerId)) return; // never self
+    dispatch({ type: "PROFILE_OPEN", player });
+  };
+  const closePlayerProfile = () => dispatch({ type: "PROFILE_CLOSE" });
+  const openChatPanel = () => dispatch({ type: "CHAT_OPEN" });
+  const closeChatPanel = () => dispatch({ type: "CHAT_CLOSE" });
 
   const myTurn = state.currentTurnSeatId != null && state.currentTurnSeatId === state.mySeatId;
   const arranging = state.phase === "ARRANGING";
@@ -987,6 +1154,8 @@ export default function NiuBullGame() {
                 const isMine = state.mySeatId === sid;
                 const isTurn = state.currentTurnSeatId === sid;
                 const revealed = state.revealedHands[sid];
+                const seatPid = seat?.player?.id;
+                const seatBubble = seatPid ? state.liveBubbles[seatPid] : null;
                 return (
                   <SeatBox
                     key={sid}
@@ -997,6 +1166,8 @@ export default function NiuBullGame() {
                     revealed={revealed}
                     displayedStack={state.displayedStacks[sid]}
                     maxSittingOutRounds={state.table?.maxSittingOutRounds || 2}
+                    chatBubble={seatBubble}
+                    onClickPlayer={openPlayerProfile}
                   />
                 );
               })}
@@ -1182,6 +1353,52 @@ export default function NiuBullGame() {
             </section>
           )}
         </>
+      )}
+
+      {/* Chat — slide-in panel from the right (Lucky Six / Bull-Bull pattern) */}
+      <Chat
+        open={state.showChatPanel}
+        onClose={closeChatPanel}
+        messages={state.chatMessages}
+        onSend={sendChat}
+        isFetching={false}
+        myUserId={state.myPlayerId}
+        myUsername={username}
+        currentPlayers={currentPlayers}
+        onOpenPlayerProfile={openPlayerProfile}
+        initialMention={state.chatMention}
+      />
+
+      {/* Profile popup — opens when a player's name (other than mine) is
+          tapped on the table. The "Send Message" button hands the @mention
+          straight into the chat panel. */}
+      {state.profilePopup && (
+        <PlayerProfileModal
+          player={state.profilePopup}
+          onClose={closePlayerProfile}
+          onSendMessage={(name) => {
+            dispatch({ type: "CHAT_SET_MENTION", name });
+            dispatch({ type: "CHAT_OPEN" });
+          }}
+        />
+      )}
+
+      {/* Floating chat (msg) button — visible once a table is joined */}
+      {joinedTableId && (
+        <button
+          type="button"
+          className="nb-msg-fab"
+          onClick={openChatPanel}
+          aria-label="Open chat"
+          title="Open chat"
+        >
+          💬
+          {state.chatMessages.length > 0 && (
+            <span className="nb-msg-fab-count">
+              {state.chatMessages.length > 99 ? "99+" : state.chatMessages.length}
+            </span>
+          )}
+        </button>
       )}
 
       {state.showTopUpModal && (

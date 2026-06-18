@@ -498,3 +498,366 @@ h2 {
   border: 1px solid rgba(255, 201, 60, 0.6);
   color: #ffc93c;
 }
+
+/* ─── Chat: msg button, slide-in panel, profile modal, seat bubble ─── */
+
+.nb-msg-fab {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #2563eb 0%, #4f46e5 100%);
+  color: #fff;
+  font-size: 24px;
+  border: 2px solid #ffd966;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.45);
+  cursor: pointer;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.15s ease;
+}
+.nb-msg-fab:hover { transform: scale(1.08); }
+.nb-msg-fab-count {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: #ef4444;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #0f1521;
+}
+
+/* Slide-in chat panel ------------------------------------------------ */
+.nb-chat-back {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 200;
+  display: flex;
+  justify-content: flex-end;
+  animation: nbFadeIn 0.15s ease-out;
+}
+.nb-chat-panel {
+  width: min(420px, 92%);
+  height: 100%;
+  background: #131c2e;
+  border-left: 1px solid #344264;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  animation: nbSlideInRight 0.22s ease-out;
+}
+@keyframes nbFadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes nbSlideInRight {
+  from { transform: translateX(100%); }
+  to   { transform: translateX(0); }
+}
+.nb-chat-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  border-bottom: 1px solid #233048;
+  color: #ffd966;
+  font-weight: 700;
+  font-size: 15px;
+}
+.nb-chat-x {
+  background: transparent;
+  color: #aab4c8;
+  border: none;
+  font-size: 26px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 4px;
+}
+.nb-chat-x:hover { color: #fff; }
+
+.nb-chat-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 6px;
+}
+.nb-chat-empty {
+  text-align: center;
+  color: #6c7689;
+  font-size: 13px;
+  padding: 20px 0;
+}
+.nb-chat-more {
+  align-self: center;
+  background: transparent;
+  border: 1px solid #344264;
+  color: #aab4c8;
+  font-size: 12px;
+  border-radius: 6px;
+  padding: 4px 10px;
+  cursor: pointer;
+  margin: 6px 0;
+}
+
+.nb-chat-row { display: flex; flex-direction: column; max-width: 78%; }
+.nb-chat-row.me { align-self: flex-end; align-items: flex-end; }
+.nb-chat-row.other { align-self: flex-start; align-items: flex-start; }
+.nb-chat-author {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 4px 0 2px;
+}
+.nb-chat-ava {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #2c3a55;
+  color: #fff;
+  border: none;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  padding: 0;
+}
+.nb-chat-ava img { width: 100%; height: 100%; object-fit: cover; }
+.nb-chat-ava:hover { box-shadow: 0 0 0 2px #ffd96666; }
+.nb-chat-name { font-size: 11px; color: #aab4c8; }
+.nb-chat-bubble {
+  background: #1f2a44;
+  border: 1px solid #2c3a55;
+  border-radius: 10px;
+  padding: 6px 10px;
+  min-width: 50px;
+}
+.nb-chat-row.me .nb-chat-bubble {
+  background: #2563eb;
+  border-color: #1d4ed8;
+}
+.nb-chat-text {
+  color: #fff;
+  font-size: 13px;
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+.nb-chat-time {
+  color: #aab4c8;
+  font-size: 10px;
+  text-align: right;
+  margin-top: 2px;
+}
+
+.nb-chat-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px;
+  border-top: 1px solid #233048;
+  background: #0f1521;
+}
+.nb-chat-input-wrap {
+  flex: 1;
+  position: relative;
+  display: flex;
+  align-items: center;
+  background: #0c1322;
+  border: 1px solid #344264;
+  border-radius: 20px;
+  padding: 4px 10px;
+}
+.nb-chat-input {
+  flex: 1;
+  background: transparent;
+  color: #fff;
+  border: none;
+  outline: none;
+  font-size: 14px;
+  padding: 6px 0;
+}
+.nb-chat-at,
+.nb-chat-preset-btn,
+.nb-chat-send {
+  background: transparent;
+  color: #aab4c8;
+  border: none;
+  cursor: pointer;
+  font-size: 18px;
+  padding: 6px 8px;
+  border-radius: 50%;
+  transition: color 0.15s, background 0.15s;
+}
+.nb-chat-at.on { color: #ffd966; }
+.nb-chat-preset-btn:hover,
+.nb-chat-at:hover { color: #fff; background: #1f2a44; }
+.nb-chat-send { color: #2563eb; font-weight: 700; }
+.nb-chat-send:disabled { opacity: 0.4; cursor: not-allowed; }
+.nb-chat-send:hover:not(:disabled) { color: #ffd966; }
+
+.nb-chat-popover {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 70px;
+  max-height: 240px;
+  overflow-y: auto;
+  background: #0f1521;
+  border: 1px solid #344264;
+  border-radius: 10px;
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.5);
+  z-index: 5;
+}
+.nb-chat-popover.mention { right: 60%; }
+.nb-chat-popover-row {
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid #1f2a44;
+  color: #e8ecf2;
+  padding: 10px 12px;
+  font-size: 13px;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.nb-chat-popover-row:last-child { border-bottom: none; }
+.nb-chat-popover-row:hover { background: #1f2a44; }
+.nb-chat-popover-send { color: #2563eb; margin-left: 8px; }
+.nb-chat-popover-empty {
+  color: #6c7689;
+  text-align: center;
+  font-size: 12px;
+  padding: 14px;
+}
+
+/* Player profile popup --------------------------------------------- */
+.nb-profile-back {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 180;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: nbFadeIn 0.15s ease-out;
+}
+.nb-profile-modal {
+  position: relative;
+  background: #131c2e;
+  border: 1px solid #344264;
+  border-radius: 14px;
+  padding: 20px 22px 18px;
+  width: min(320px, 88%);
+  text-align: center;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.55);
+}
+.nb-profile-x {
+  position: absolute;
+  top: 6px;
+  right: 10px;
+  background: transparent;
+  border: none;
+  color: #aab4c8;
+  font-size: 24px;
+  cursor: pointer;
+}
+.nb-profile-x:hover { color: #fff; }
+.nb-profile-ava {
+  width: 76px;
+  height: 76px;
+  border-radius: 50%;
+  background: #2c3a55;
+  color: #fff;
+  font-weight: 700;
+  font-size: 26px;
+  margin: 4px auto 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border: 2px solid #ffd966;
+}
+.nb-profile-ava img { width: 100%; height: 100%; object-fit: cover; }
+.nb-profile-name {
+  font-size: 18px;
+  font-weight: 700;
+  color: #ffd966;
+  margin-bottom: 4px;
+}
+.nb-profile-meta {
+  color: #aab4c8;
+  font-size: 13px;
+  margin-top: 2px;
+}
+.nb-profile-meta b { color: #fff; }
+.nb-profile-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 14px;
+  justify-content: center;
+}
+
+/* Live chat bubble above an opponent's seat ----------------------- */
+.nb-seat { position: relative; }
+.nb-seat-bubble {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(100% + 6px);
+  max-width: 80%;
+  padding: 6px 10px;
+  background: rgba(20, 22, 28, 0.96);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 10px;
+  color: #fff;
+  font-size: 12px;
+  text-align: center;
+  z-index: 30;
+  animation: nbBubbleIn 0.18s ease-out;
+  pointer-events: none;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.45);
+}
+.nb-seat-bubble-text {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.nb-seat-bubble-tail {
+  position: absolute;
+  left: 50%;
+  bottom: -6px;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-top: 6px solid rgba(20, 22, 28, 0.96);
+}
+@keyframes nbBubbleIn {
+  from { opacity: 0; transform: translate(-50%, 6px); }
+  to   { opacity: 1; transform: translate(-50%, 0); }
+}
+
+.nb-seat-name.clickable {
+  cursor: pointer;
+  text-decoration: underline dotted rgba(255, 255, 255, 0.3);
+}
+.nb-seat-name.clickable:hover { color: #ffd966; }
