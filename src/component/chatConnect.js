@@ -18,6 +18,7 @@ export const CHAT_EVENTS = {
 
 let chatSocket = null;
 let listeners = new Set();
+let stickerListeners = new Set();
 
 // The chat server emits RECEIVE_MESSAGES with the actual message nested under
 // a `message` field (the RN store does `const { message } = action.payload`).
@@ -70,10 +71,25 @@ export const initializeSocketChat = (userId) => {
   );
 
   chatSocket.on(CHAT_EVENTS.RECEIVE_MESSAGES, (data) => fanout(data));
-  chatSocket.on(CHAT_EVENTS.RECEIVE_STICKERS, (data) => fanout(data));
-  chatSocket.on(CHAT_EVENTS.SEND_STICKERS, (data) => fanout(data));
+  // Stickers go to a separate fanout — they carry {table, from, to, message:
+  // {stickerId, ...}, type} and the consumer needs the original envelope to
+  // know who sent it and which seat to target, so do NOT unwrap.
+  chatSocket.on(CHAT_EVENTS.RECEIVE_STICKERS, (data) =>
+    fanoutStickers({ ...data, type: CHAT_EVENTS.RECEIVE_STICKERS })
+  );
+  chatSocket.on(CHAT_EVENTS.SEND_STICKERS, (data) =>
+    fanoutStickers({ ...data, type: CHAT_EVENTS.SEND_STICKERS })
+  );
 
   return chatSocket;
+};
+
+const fanoutStickers = (payload) => {
+  stickerListeners.forEach((cb) => {
+    try {
+      cb(payload);
+    } catch (_) {}
+  });
 };
 
 export const getSocketChat = () => chatSocket;
@@ -84,6 +100,7 @@ export const disconnectSocketChat = () => {
     chatSocket.disconnect();
     chatSocket = null;
     listeners.clear();
+    stickerListeners.clear();
   }
 };
 
@@ -103,4 +120,17 @@ export const joinGameChat = (tableId) => {
 export const sendChatMessage = (payload) => {
   if (!chatSocket) return;
   chatSocket.emit(CHAT_EVENTS.SEND_MESSAGES, payload);
+};
+
+// Subscribe to sticker broadcasts (SEND_STICKERS + RECEIVE_STICKERS).
+// Subscriber receives the raw envelope { type, table, from, to, message, ... }
+// so it can decide based on `type` whether to animate / suppress own echo.
+export const subscribeChatStickers = (cb) => {
+  stickerListeners.add(cb);
+  return () => stickerListeners.delete(cb);
+};
+
+export const sendSticker = (payload) => {
+  if (!chatSocket) return;
+  chatSocket.emit(CHAT_EVENTS.SEND_STICKERS, payload);
 };

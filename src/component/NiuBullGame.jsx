@@ -3,13 +3,22 @@ import { io } from "socket.io-client";
 import "./NiuBullGame.css";
 import Chat from "./Chat";
 import PlayerProfileModal from "./PlayerProfileModal";
+import StickerOverlay from "./StickerOverlay";
+import StickerPicker from "./StickerPicker";
 import {
   initializeSocketChat,
   disconnectSocketChat,
   joinGameChat,
   sendChatMessage as emitChatMessage,
   subscribeChatMessages,
+  subscribeChatStickers,
+  sendSticker as emitSticker,
+  CHAT_EVENTS,
 } from "./chatConnect";
+import {
+  getAllActiveStickersCategories,
+  addRecentSticker,
+} from "./stickerApi";
 
 const SOCKET_URL = "https://poker-api.testsdlc.in";
 
@@ -70,6 +79,11 @@ const initialState = {
   showChatPanel: false,
   profilePopup: null,
   chatMention: null,
+
+  // OFX stickers — flying-sticker animation list + picker state.
+  stickers: [], // {id, fromX, fromY, dx, dy, imageUrl, gifUrl, phase, isSelf}
+  stickerCategories: { self: [], opponent: [] },
+  stickerPicker: null, // {type:"own"|"opponent", seatId, name} | null
 };
 
 function reducer(state, action) {
@@ -327,6 +341,33 @@ function reducer(state, action) {
       return { ...state, profilePopup: action.player };
     case "PROFILE_CLOSE":
       return { ...state, profilePopup: null };
+
+    case "STICKER_SPAWN":
+      return { ...state, stickers: [...state.stickers, action.sticker] };
+    case "STICKER_PHASE":
+      return {
+        ...state,
+        stickers: state.stickers.map((s) =>
+          s.id === action.id ? { ...s, phase: action.phase } : s
+        ),
+      };
+    case "STICKER_REMOVE":
+      return {
+        ...state,
+        stickers: state.stickers.filter((s) => s.id !== action.id),
+      };
+    case "STICKER_SET_CATEGORIES":
+      return {
+        ...state,
+        stickerCategories: {
+          ...state.stickerCategories,
+          [action.bucket]: action.list,
+        },
+      };
+    case "STICKER_PICKER_OPEN":
+      return { ...state, stickerPicker: action.info };
+    case "STICKER_PICKER_CLOSE":
+      return { ...state, stickerPicker: null };
 
     default:
       return state;
@@ -1026,6 +1067,204 @@ export default function NiuBullGame() {
   const openChatPanel = () => dispatch({ type: "CHAT_OPEN" });
   const closeChatPanel = () => dispatch({ type: "CHAT_CLOSE" });
 
+  // ─────────────────── OFX STICKERS ────────────────────────────────────
+  // Mirrors bullBullGame.js: animate flying stickers seat-to-seat, and
+  // resolve image/gif URLs from the server-fetched categories list.
+
+  // Flat categories list for fast lookups in the receive handler. A ref
+  // (not state) so a category fetch doesn't churn the receive subscription.
+  const stickerCategoriesRef = useRef([]);
+  useEffect(() => {
+    stickerCategoriesRef.current = [
+      ...(state.stickerCategories.self || []),
+      ...(state.stickerCategories.opponent || []),
+    ];
+  }, [state.stickerCategories]);
+
+  // Fetch sticker categories once we know who the player is. Best-effort —
+  // fallback emoji set in StickerPicker keeps the feature usable if the
+  // auth-server endpoint is unreachable (no JWT, CORS, etc.).
+  useEffect(() => {
+    if (!state.myPlayerId) return;
+    const load = async (bucket) => {
+      const res = await getAllActiveStickersCategories(
+        { page: 1, limit: 10, type: bucket === "self" ? "self" : "opponent" },
+        jwtToken || undefined
+      );
+      const list = res?.data?.list || res?.data?.data?.list || [];
+      if (list.length) {
+        dispatch({ type: "STICKER_SET_CATEGORIES", bucket, list });
+      }
+    };
+    load("self");
+    load("opponent");
+  }, [state.myPlayerId, jwtToken]);
+
+  // Flying-sticker animator. fromSeatId === toSeatId => "self" celebrate
+  // (no travel, just scale-in + GIF play). Otherwise: travel image, then
+  // swap to GIF for ~3s, then auto-remove.
+  const animateSticker = (fromSeatId, toSeatId, sticker) => {
+    const from = seatCenter(fromSeatId) || seatCenter(toSeatId);
+    const to = seatCenter(toSeatId);
+    if (!to) return;
+    const isSelf = Number(fromSeatId) === Number(toSeatId);
+    const id = `stk-${Date.now()}-${Math.random()}`;
+    const entry = {
+      id,
+      fromX: isSelf ? to.x : from.x,
+      fromY: isSelf ? to.y : from.y,
+      dx: to.x - (isSelf ? to.x : from.x),
+      dy: to.y - (isSelf ? to.y : from.y),
+      imageUrl: sticker.imageUrl || sticker.gifUrl || null,
+      gifUrl: sticker.gifUrl || sticker.imageUrl || null,
+      stickerKey: sticker.stickerKey || null,
+      categoryKey: sticker.categoryKey || null,
+      fallbackEmoji: sticker.fallbackEmoji || sticker.emoji || null,
+      phase: isSelf ? "playing" : "traveling",
+      isSelf,
+    };
+    dispatch({ type: "STICKER_SPAWN", sticker: entry });
+
+    if (isSelf) {
+      setTimeout(() => dispatch({ type: "STICKER_REMOVE", id }), 3000);
+      return;
+    }
+    // Travel duration mirrors the RN spring (1200ms). After it lands we
+    // switch to the GIF and hold for 3s before unmounting.
+    setTimeout(() => dispatch({ type: "STICKER_PHASE", id, phase: "playing" }), 1200);
+    setTimeout(() => dispatch({ type: "STICKER_REMOVE", id }), 1200 + 3000);
+  };
+
+  // Throttle outbound stickers like bullBullGame.js — 500ms cooldown so
+  // someone holding the picker can't spam the table.
+  const stickerSendingRef = useRef(false);
+  const handleSendSticker = (sticker) => {
+    if (state.mySeatId == null) {
+      pushToast("Only seated players can send stickers", "warn");
+      return;
+    }
+    const info = state.stickerPicker;
+    if (!info) return;
+    if (stickerSendingRef.current) {
+      pushToast("Sending stickers too fast", "warn");
+      return;
+    }
+    stickerSendingRef.current = true;
+    setTimeout(() => {
+      stickerSendingRef.current = false;
+    }, 500);
+
+    const from = state.mySeatId;
+    const to = info.type === "own" ? state.mySeatId : info.seatId;
+
+    // Local optimistic animation — same shape that's later sent over the wire.
+    animateSticker(Number(from), Number(to), sticker);
+
+    // Broadcast over the chat socket. The server fans out RECEIVE_STICKERS
+    // to every other client subscribed to this table. Carry the emoji char
+    // (when present) so the receiver renders the SAME glyph the sender
+    // picked — the auth-server categories may not contain our local
+    // fallback set, and without this every fallback sticker decoded to 🎉
+    // on the other tab.
+    emitSticker({
+      tableId: joinedTableId,
+      to,
+      from,
+      emojiId: sticker.id,
+      stickerId: sticker.id,
+      stickerKey: sticker.stickerKey || null,
+      categoryKey: sticker.categoryKey || null,
+      fallbackEmoji: sticker.fallbackEmoji || sticker.emoji || null,
+    });
+
+    // Best-effort recent-stickers ledger (matches RN call site).
+    addRecentSticker(
+      { stickerId: sticker.id, type: info.type === "own" ? "self" : "opponent" },
+      jwtToken || undefined
+    );
+
+    dispatch({ type: "STICKER_PICKER_CLOSE" });
+  };
+
+  // React to remote sticker broadcasts. Suppress echoes of my own send —
+  // local animation already played.
+  useEffect(() => {
+    const off = subscribeChatStickers((env) => {
+      if (!env) return;
+      if (env.type !== CHAT_EVENTS.RECEIVE_STICKERS) return;
+      try {
+        const { table, message } = env;
+        const fromSeat = message?.from ?? env.from ?? null;
+        const toSeat = message?.to ?? env.to ?? null;
+        const stickerId = message?.stickerId ?? message?.emojiId;
+        if (joinedTableId != null && Number(table) !== Number(joinedTableId)) return;
+        if (fromSeat == null || toSeat == null) return;
+        if (
+          state.mySeatId != null &&
+          Number(fromSeat) === Number(state.mySeatId)
+        ) {
+          return; // echo of my own send
+        }
+        // Resolve image/gif from the categories ref. If unknown, fall back
+        // to the emoji char carried in the wire payload (sender's pick) so
+        // every fallback sticker doesn't decode to 🎉 on the receiver side.
+        let imageUrl = null;
+        let gifUrl = null;
+        let stickerKey = null;
+        let categoryKey = null;
+        for (const cat of stickerCategoriesRef.current) {
+          const found = (cat.stickers || []).find((s) => s.id === stickerId);
+          if (found) {
+            imageUrl = found.imageUrl || found.gifUrl || null;
+            gifUrl = found.gifUrl || found.imageUrl || null;
+            stickerKey = found.stickerKey || null;
+            categoryKey = found.categoryKey || cat.categoryKey || null;
+            break;
+          }
+        }
+        const fallbackEmoji =
+          message?.fallbackEmoji ?? message?.emoji ?? env?.fallbackEmoji ?? null;
+        animateSticker(Number(fromSeat), Number(toSeat), {
+          id: stickerId,
+          imageUrl,
+          gifUrl,
+          stickerKey,
+          categoryKey,
+          fallbackEmoji,
+        });
+      } catch (e) {
+        console.log("[NiuBull][stickers] receive error", e);
+      }
+    });
+    return () => off();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [joinedTableId, state.mySeatId]);
+
+  const openStickerForOpponent = (player) => {
+    if (state.mySeatId == null) {
+      pushToast("Sit down to send stickers", "warn");
+      return;
+    }
+    dispatch({
+      type: "STICKER_PICKER_OPEN",
+      info: {
+        type: "opponent",
+        seatId: player.seatId,
+        name: player.displayName || player.name,
+      },
+    });
+  };
+  const openStickerForSelf = () => {
+    if (state.mySeatId == null) {
+      pushToast("Sit down to send stickers", "warn");
+      return;
+    }
+    dispatch({
+      type: "STICKER_PICKER_OPEN",
+      info: { type: "own", seatId: state.mySeatId, name: username || "You" },
+    });
+  };
+
   const myTurn = state.currentTurnSeatId != null && state.currentTurnSeatId === state.mySeatId;
   const arranging = state.phase === "ARRANGING";
   const seats = state.table?.seats || {};
@@ -1380,25 +1619,60 @@ export default function NiuBullGame() {
             dispatch({ type: "CHAT_SET_MENTION", name });
             dispatch({ type: "CHAT_OPEN" });
           }}
+          onSendSticker={(player) => openStickerForOpponent(player)}
         />
       )}
 
-      {/* Floating chat (msg) button — visible once a table is joined */}
+      {/* OFX stickers — flying-sticker overlay (always mounted, draws
+          nothing when the list is empty). */}
+      <StickerOverlay stickers={state.stickers} />
+
+      {/* Sticker picker — choose category, click to fire animateSticker +
+          SEND_STICKERS broadcast. */}
+      <StickerPicker
+        open={!!state.stickerPicker}
+        type={state.stickerPicker?.type}
+        targetSeatId={state.stickerPicker?.seatId}
+        targetName={state.stickerPicker?.name}
+        categories={
+          state.stickerPicker?.type === "own"
+            ? state.stickerCategories.self
+            : state.stickerCategories.opponent
+        }
+        onClose={() => dispatch({ type: "STICKER_PICKER_CLOSE" })}
+        onPick={handleSendSticker}
+      />
+
+      {/* Floating chat + sticker buttons (bottom-right) — only after sitting
+          down so the sticker FAB stays disabled for observers. */}
       {joinedTableId && (
-        <button
-          type="button"
-          className="nb-msg-fab"
-          onClick={openChatPanel}
-          aria-label="Open chat"
-          title="Open chat"
-        >
-          💬
-          {state.chatMessages.length > 0 && (
-            <span className="nb-msg-fab-count">
-              {state.chatMessages.length > 99 ? "99+" : state.chatMessages.length}
-            </span>
+        <div className="nb-fab-stack">
+          {state.mySeatId != null && (
+            <button
+              type="button"
+              className="nb-stk-fab"
+              onClick={openStickerForSelf}
+              aria-label="Send sticker"
+              title="Send sticker to yourself"
+            >
+              🎁
+            </button>
           )}
-        </button>
+          <button
+            type="button"
+            className="nb-msg-fab"
+            onClick={openChatPanel}
+            aria-label="Open chat"
+            title="Open chat"
+          >
+            💬
+            {state.chatMessages.length > 0 && (
+              <span className="nb-msg-fab-count">
+                {state.chatMessages.length > 99 ? "99+" : state.chatMessages.length}
+              </span>
+            )}
+          </button>
+        </div>
       )}
 
       {state.showTopUpModal && (

@@ -11,7 +11,12 @@ const initials = (name = "") =>
     .map((w) => w[0]?.toUpperCase())
     .join("") || "?";
 
-export default function PlayerProfileModal({ player, onClose, onSendMessage }) {
+export default function PlayerProfileModal({
+  player,
+  onClose,
+  onSendMessage,
+  onSendSticker,
+}) {
   if (!player) return null;
   const name = player.displayName || player.name || `P${player.id}`;
   return (
@@ -52,6 +57,17 @@ export default function PlayerProfileModal({ player, onClose, onSendMessage }) {
           >
             💬 Send Message
           </button>
+          {onSendSticker && (
+            <button
+              className="nb-btn"
+              onClick={() => {
+                onSendSticker?.(player);
+                onClose?.();
+              }}
+            >
+              🎁 Send Sticker
+            </button>
+          )}
           <button className="nb-btn" onClick={onClose}>
             Close
           </button>
