@@ -20,8 +20,9 @@ import {
   addRecentSticker,
 } from "./stickerApi";
 
-const SOCKET_URL = "https://poker-api.testsdlc.in";
-
+const SOCKET_URL = "http://localhost:4000";
+// const SOCKET_URL = "https://poker-api.testsdlc.in";
+// 
 // Module-level socket singleton — survives re-renders without a useRef.
 let socket = null;
 let joinedTableIdGlobal = null;

@@ -6,6 +6,7 @@ import PlayGround from './component/playGround';
 import BullBullGame from './component/BullBullGame';
 import Lucky6 from './component/Lucky6';
 import NiuBullGame from './component/NiuBullGame';
+import DuckHuntGame from './component/duckHunt/DuckHuntGame';
 
 function App() {
   return (
@@ -20,6 +21,7 @@ function App() {
         <Route path="/bullbullgame" element={<BullBullGame />} />
         <Route path="/lucky-six-game" element={<Lucky6 />} />
         <Route path="/niubull-game" element={<NiuBullGame />} />
+        <Route path="/duck-hunt" element={<DuckHuntGame />} />
       </Routes>
     </Router>
   );
