@@ -87,27 +87,33 @@ export default function DuckHuntGame() {
     socketRef.current = socket;
 
     socket.on(EVENTS.CONNECT, () => {
+      logEvent(EVENTS.CONNECT, { socketId: socket.id });
       setConnected(true);
       setError(null);
       pushMsg('Connected to server', 'success');
     });
 
-    socket.on(EVENTS.CONNECT_ACK, () => {
+    socket.on(EVENTS.CONNECT_ACK, (data) => {
+      logEvent(EVENTS.CONNECT_ACK, data);
       socket.emit(EVENTS.REQUEST_SLOT_INFO, { gameId, playerId });
+      logEvent(EVENTS.REQUEST_SLOT_INFO, { gameId, playerId }, 'out');
     });
 
-    socket.on(EVENTS.DISCONNECT, () => {
+    socket.on(EVENTS.DISCONNECT, (reason) => {
+      logEvent(EVENTS.DISCONNECT, { reason });
       setConnected(false);
       pushMsg('Disconnected', 'error');
     });
 
     socket.on(EVENTS.ERROR, (msg) => {
+      logEvent(EVENTS.ERROR, msg);
       setError(typeof msg === 'string' ? msg : JSON.stringify(msg));
       pushMsg(typeof msg === 'string' ? msg : 'Error', 'error');
       setSpinning(false);
     });
 
     socket.on(EVENTS.SLOT_INFO, (info) => {
+      logEvent(EVENTS.SLOT_INFO, info);
       if (typeof info.balance === 'number') setBalance(info.balance);
       if (info.username) setUsername(info.username);
       if (info.lastBoardState) setBoard(info.lastBoardState);
@@ -119,6 +125,7 @@ export default function DuckHuntGame() {
     });
 
     socket.on(EVENTS.PLAY_RESULT, (result) => {
+      logEvent(EVENTS.PLAY_RESULT, result);
       const state = result?.state;
       if (!state) return;
 
@@ -140,10 +147,12 @@ export default function DuckHuntGame() {
     });
 
     socket.on(EVENTS.FREE_SPIN_WON, (count) => {
+      logEvent(EVENTS.FREE_SPIN_WON, { count });
       pushMsg(`🎉 Won ${count} Free Spins!`, 'success');
     });
 
     socket.on(EVENTS.FREE_SPIN_ROUND_STARTED, (info) => {
+      logEvent(EVENTS.FREE_SPIN_ROUND_STARTED, info);
       setFreeSpins({
         active: true,
         remaining: info.remainingSpins || info.totalRounds || 0,
@@ -157,6 +166,7 @@ export default function DuckHuntGame() {
     });
 
     socket.on(EVENTS.FREE_SPIN_INFO, (info) => {
+      logEvent(EVENTS.FREE_SPIN_INFO, info);
       setFreeSpins((fs) => ({
         ...fs,
         active: true,
@@ -171,29 +181,57 @@ export default function DuckHuntGame() {
     });
 
     socket.on(EVENTS.FREE_SPIN_COMPLETED, (msg) => {
+      logEvent(EVENTS.FREE_SPIN_COMPLETED, msg);
       setFreeSpins({ active: false, remaining: 0, total: 0, totalWon: 0, features: [] });
       pushMsg(msg || 'Free Spin Completed', 'info');
     });
 
     socket.on(EVENTS.AUTO_PLAY_INFO, (info) => {
+      logEvent(EVENTS.AUTO_PLAY_INFO, info);
       setAutoplay({ active: true, remaining: info.remainingSpins || 0 });
       const timer = setTimeout(() => {
         socket.emit(EVENTS.NEXT_AUTO_PLAY_ROUND, { gameId });
+        logEvent(EVENTS.NEXT_AUTO_PLAY_ROUND, { gameId }, 'out');
       }, 900);
       return () => clearTimeout(timer);
     });
 
     socket.on(EVENTS.AUTO_PLAY_COMPLETED, (msg) => {
+      logEvent(EVENTS.AUTO_PLAY_COMPLETED, msg);
       setAutoplay({ active: false, remaining: 0 });
       pushMsg(msg || 'Autoplay Completed', 'info');
     });
 
     socket.on(EVENTS.AUTO_PLAY_ERR, (msg) => {
+      logEvent(EVENTS.AUTO_PLAY_ERR, msg);
       setAutoplay({ active: false, remaining: 0 });
       pushMsg(msg || 'Autoplay error', 'error');
     });
 
-    socket.on(EVENTS.GET_PICK_REQUEST, () => setPickOpen(true));
+    socket.on(EVENTS.GET_PICK_REQUEST, (data) => {
+      logEvent(EVENTS.GET_PICK_REQUEST, data);
+      setPickOpen(true);
+    });
+
+    socket.on(EVENTS.GET_PICK_OPTION, (data) => {
+      logEvent(EVENTS.GET_PICK_OPTION, data);
+    });
+
+    socket.on(EVENTS.GET_BONUS_INFO, (data) => {
+      logEvent(EVENTS.GET_BONUS_INFO, data);
+    });
+
+    socket.on(EVENTS.ON_BET_INFO, (data) => {
+      logEvent(EVENTS.ON_BET_INFO, data);
+    });
+
+    // Catch-all listener — logs ANY event we didn't register above
+    socket.onAny((eventName, ...args) => {
+      const known = Object.values(EVENTS);
+      if (!known.includes(eventName)) {
+        logEvent(eventName, args.length === 1 ? args[0] : args);
+      }
+    });
 
     return () => {
       if (freeSpinTimerRef.current) clearTimeout(freeSpinTimerRef.current);
@@ -209,7 +247,9 @@ export default function DuckHuntGame() {
     setSpinning(true);
     setCascadeData([]);
     setLastWin(0);
-    socket.emit(EVENTS.PLAY_FREE_SPIN_ROUND, { gameId });
+    const payload = { gameId };
+    socket.emit(EVENTS.PLAY_FREE_SPIN_ROUND, payload);
+    logEvent(EVENTS.PLAY_FREE_SPIN_ROUND, payload, 'out');
   };
 
   const handleSpin = () => {
@@ -221,30 +261,36 @@ export default function DuckHuntGame() {
     setSpinning(true);
     setCascadeData([]);
     setLastWin(0);
-    socket.emit(EVENTS.PLAY, {
+    const payload = {
       gameId,
       coin_value: coinValue,
       game_code: GAME_CODE,
       type: 'bet',
-    });
+    };
+    socket.emit(EVENTS.PLAY, payload);
+    logEvent(EVENTS.PLAY, payload, 'out');
   };
 
   const handleStartAutoplay = (rounds) => {
     const socket = socketRef.current;
     if (!socket) return;
     setAutoplay({ active: true, remaining: rounds });
-    socket.emit(EVENTS.START_AUTO_PLAY, {
+    const payload = {
       gameId,
       rounds,
       coin_value: coinValue,
       game_code: GAME_CODE,
-    });
+    };
+    socket.emit(EVENTS.START_AUTO_PLAY, payload);
+    logEvent(EVENTS.START_AUTO_PLAY, payload, 'out');
   };
 
   const handleCancelAutoplay = () => {
     const socket = socketRef.current;
     if (!socket) return;
-    socket.emit(EVENTS.CANCEL_AUTO_PLAY, { gameId });
+    const payload = { gameId };
+    socket.emit(EVENTS.CANCEL_AUTO_PLAY, payload);
+    logEvent(EVENTS.CANCEL_AUTO_PLAY, payload, 'out');
     setAutoplay({ active: false, remaining: 0 });
   };
 
@@ -254,19 +300,23 @@ export default function DuckHuntGame() {
     setBuyBonusOpen(false);
     setSpinning(true);
     setCascadeData([]);
-    socket.emit(EVENTS.BUY_BONUS, {
+    const payload = {
       gameId,
       coin_value: coinValue,
       game_code: GAME_CODE,
       bonus_id: opt.id,
-    });
+    };
+    socket.emit(EVENTS.BUY_BONUS, payload);
+    logEvent(EVENTS.BUY_BONUS, payload, 'out');
   };
 
   const handlePick = (choice) => {
     const socket = socketRef.current;
     if (!socket) return;
     setPickOpen(false);
-    socket.emit(EVENTS.SEND_PICK_CHOICE, { gameId, player_choice: choice });
+    const payload = { gameId, player_choice: choice };
+    socket.emit(EVENTS.SEND_PICK_CHOICE, payload);
+    logEvent(EVENTS.SEND_PICK_CHOICE, payload, 'out');
   };
 
   return (
@@ -304,8 +354,13 @@ export default function DuckHuntGame() {
 
       {connected && (
         <div className="dh-stage">
-          <div className="dh-grid-wrap">
-            <SlotGrid board={board} cascadeData={cascadeData} spinning={spinning} />
+          <div className={`dh-grid-wrap ${freeSpins.active ? 'dh-grid-wrap-fs' : ''}`}>
+            <SlotGrid
+              board={board}
+              cascadeData={cascadeData}
+              spinning={spinning}
+              freeSpin={freeSpins.active}
+            />
             <FreeSpinOverlay
               active={freeSpins.active}
               remaining={freeSpins.remaining}
@@ -361,6 +416,64 @@ export default function DuckHuntGame() {
           ⚠ {error} <small>(tap to dismiss)</small>
         </div>
       )}
+
+      <div className={`dh-event-log ${eventLogOpen ? 'dh-open' : 'dh-collapsed'}`}>
+        <div className="dh-event-log-header">
+          <div className="dh-event-log-title">
+            <span className="dh-event-dot" />
+            Socket Event Log
+            <span className="dh-event-count">({socketEvents.length})</span>
+          </div>
+          <div className="dh-event-log-actions">
+            <button className="dh-event-btn" onClick={clearEventLog}>Clear</button>
+            <button className="dh-event-btn" onClick={() => setEventLogOpen((o) => !o)}>
+              {eventLogOpen ? '▼' : '▲'}
+            </button>
+          </div>
+        </div>
+        {eventLogOpen && (
+          <div className="dh-event-list">
+            {socketEvents.length === 0 && (
+              <div className="dh-event-empty">Waiting for socket events…</div>
+            )}
+            {socketEvents.map((ev) => {
+              const isExpanded = eventLogExpanded[ev.id];
+              const preview =
+                ev.payload == null
+                  ? 'null'
+                  : typeof ev.payload === 'string'
+                    ? ev.payload
+                    : JSON.stringify(ev.payload).slice(0, 90) +
+                      (JSON.stringify(ev.payload).length > 90 ? '…' : '');
+              return (
+                <div
+                  key={ev.id}
+                  className={`dh-event-item dh-event-${ev.direction}`}
+                  onClick={() => toggleEventExpand(ev.id)}
+                >
+                  <div className="dh-event-row">
+                    <span className="dh-event-time">{ev.time}</span>
+                    <span className={`dh-event-arrow dh-event-arrow-${ev.direction}`}>
+                      {ev.direction === 'in' ? '←' : '→'}
+                    </span>
+                    <span className="dh-event-name">{ev.eventName}</span>
+                    <span className="dh-event-preview">{preview}</span>
+                  </div>
+                  {isExpanded && (
+                    <pre className="dh-event-json">
+                      {ev.payload == null
+                        ? 'null'
+                        : typeof ev.payload === 'string'
+                          ? ev.payload
+                          : JSON.stringify(ev.payload, null, 2)}
+                    </pre>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
