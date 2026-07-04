@@ -228,25 +228,20 @@
 }
 
 .dh-reel {
-  display: grid;
-  grid-template-rows: repeat(5, 1fr);
+  display: flex;
+  flex-direction: column;
   gap: 4px;
   position: relative;
   overflow: hidden;
   border-radius: 8px;
   background: rgba(0, 0, 0, 0.35);
-}
-
-.dh-cell-slot {
-  position: relative;
-  aspect-ratio: 1;
-  overflow: hidden;
-  border-radius: 8px;
+  padding: 2px;
 }
 
 .dh-cell {
-  position: absolute;
-  inset: 0;
+  flex: 1 1 0;
+  min-height: 0;
+  aspect-ratio: 1;
   background: #1e293b;
   border-radius: 8px;
   display: flex;
@@ -256,6 +251,28 @@
   overflow: visible;
   border: 1px solid rgba(255, 255, 255, 0.06);
   will-change: transform, opacity, filter;
+  position: relative;
+}
+
+.dh-reel-spinning .dh-cell {
+  filter: blur(2px);
+  animation: dh-reel-shake 0.15s linear infinite;
+}
+
+@keyframes dh-reel-shake {
+  0%   { transform: translateY(-2px); }
+  50%  { transform: translateY(2px); }
+  100% { transform: translateY(-2px); }
+}
+
+.dh-bomb-glow {
+  position: absolute;
+  inset: -4px;
+  border-radius: 10px;
+  background: radial-gradient(circle, rgba(255, 32, 32, 0.6) 0%, transparent 70%);
+  z-index: 4;
+  pointer-events: none;
+  mix-blend-mode: screen;
 }
 
 .dh-cell-emoji {

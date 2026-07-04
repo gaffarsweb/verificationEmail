@@ -5,31 +5,28 @@ import { getSymbol } from './symbols';
 const REELS = 6;
 const ROWS = 5;
 
-const PHASE = {
-  IDLE: 'idle',
-  SPINNING: 'spinning',
-  LANDING: 'landing',
-  SHOWING: 'showing',
-  TARGET_HIGHLIGHT: 'target_highlight',
-  BLASTING: 'blasting',
-  DROPPING: 'dropping',
-  BOMB_ARMED: 'bomb_armed',
-  BOMB_BURST: 'bomb_burst',
-};
-
-const TIMINGS = {
-  spin: 550,
-  landStagger: 90,
-  postLand: 350,
-  targetHighlight: 700,
+const T = {
+  target: 700,
   blast: 550,
-  refill: 400,
-  bombArm: 500,
-  bombBurst: 700,
+  refill: 500,
+  step: 250,
+  firstLandWait: 850,
 };
 
-function emptyBoard() {
-  return Array.from({ length: REELS }, () => Array.from({ length: ROWS }, () => null));
+let cellIdCounter = 1;
+const nextCellId = () => `c${cellIdCounter++}`;
+
+function makeCell(symId) {
+  return { id: nextCellId(), symId };
+}
+
+function boardToColumns(board) {
+  if (!board) {
+    return Array.from({ length: REELS }, () =>
+      Array.from({ length: ROWS }, () => makeCell(null))
+    );
+  }
+  return board.map((col) => col.map((symId) => makeCell(symId)));
 }
 
 function cellKey(c, r) { return `${c}-${r}`; }
@@ -57,63 +54,48 @@ function getBombSet(bombState) {
   return s;
 }
 
-function getRemovedBySet(bombState) {
+function getBombHitSet(bombState) {
   const s = new Set();
   (bombState?.removedPositions || []).forEach((p) => s.add(cellKey(p.col, p.row)));
   return s;
 }
 
 /**
- * Cell — animates each symbol individually.
- * Drop-in from top, blast, refill, spin blur.
+ * One cell in a reel.
+ * Uses framer-motion `layout` so when siblings above are removed, this cell
+ * smoothly slides down into the vacated slot.
  */
-function Cell({ symId, phase, colIdx, rowIdx, isWin, isBomb, isBombHit, multiplier, freeSpin }) {
-  const sym = symId != null ? getSymbol(symId) : null;
+function Cell({ cell, freeSpin, isTargeted, isBombArmed, multiplier }) {
+  const sym = cell.symId != null ? getSymbol(cell.symId) : null;
   const bg = sym ? `linear-gradient(160deg, ${sym.color}55, ${sym.color}22)` : 'transparent';
 
-  const animate = {};
-  let transition = { duration: 0.35, ease: 'easeOut' };
+  const targetAnim = isTargeted
+    ? {
+        scale: [1, 1.14, 1.06],
+        filter: ['brightness(1)', 'brightness(1.9)', 'brightness(1.4)'],
+      }
+    : { scale: 1, filter: 'brightness(1)' };
 
-  if (phase === PHASE.SPINNING) {
-    animate.y = [-40, 400];
-    animate.filter = ['blur(0px)', 'blur(3px)'];
-    transition = { duration: 0.3, repeat: Infinity, ease: 'linear' };
-  } else if (phase === PHASE.LANDING) {
-    animate.y = [-160, 12, 0];
-    animate.opacity = [0, 1, 1];
-    animate.scale = [1.02, 1.08, 1];
-    transition = { duration: 0.55, ease: [0.34, 1.56, 0.64, 1], delay: colIdx * 0.09 };
-  } else if (phase === PHASE.TARGET_HIGHLIGHT && isWin) {
-    animate.scale = [1, 1.14, 1.06];
-    animate.filter = ['brightness(1)', 'brightness(1.8)', 'brightness(1.4)'];
-    transition = { duration: 0.5, repeat: 1, ease: 'easeInOut' };
-  } else if (phase === PHASE.BLASTING && isWin) {
-    animate.scale = [1.06, 1.6, 0];
-    animate.opacity = [1, 1, 0];
-    animate.rotate = [0, 45];
-    transition = { duration: 0.55, ease: 'easeIn' };
-  } else if (phase === PHASE.BOMB_ARMED && isBomb) {
-    animate.scale = [1, 1.2, 1, 1.2, 1];
-    animate.rotate = [0, -8, 8, -8, 0];
-    transition = { duration: 0.5, ease: 'easeInOut' };
-  } else if (phase === PHASE.BOMB_BURST && isBombHit) {
-    animate.scale = [1, 1.8, 0];
-    animate.opacity = [1, 1, 0];
-    transition = { duration: 0.6, ease: 'easeOut', delay: 0.05 };
-  } else if (phase === PHASE.DROPPING) {
-    animate.y = [-120, 0];
-    animate.opacity = [0, 1];
-    animate.scale = [0.9, 1];
-    transition = { duration: 0.45, ease: [0.34, 1.56, 0.64, 1], delay: rowIdx * 0.05 + colIdx * 0.04 };
-  }
+  const armAnim = isBombArmed
+    ? { rotate: [0, -10, 10, -8, 8, 0] }
+    : { rotate: 0 };
 
   return (
     <motion.div
-      className={`dh-cell tier-${sym?.tier || 'empty'} ${isWin ? 'dh-win' : ''} ${freeSpin ? 'dh-fs-cell' : ''}`}
+      layout
+      className={`dh-cell tier-${sym?.tier || 'empty'} ${isTargeted ? 'dh-win' : ''} ${freeSpin ? 'dh-fs-cell' : ''}`}
       style={{ background: bg }}
-      animate={animate}
-      transition={transition}
-      layout={false}
+      initial={{ y: -180, opacity: 0, scale: 0.92 }}
+      animate={{ y: 0, opacity: 1, ...targetAnim, ...armAnim }}
+      exit={{ scale: 1.7, opacity: 0, rotate: 20, transition: { duration: 0.5, ease: 'easeIn' } }}
+      transition={{
+        y: { type: 'spring', stiffness: 380, damping: 26, mass: 0.8 },
+        opacity: { duration: 0.28 },
+        scale: isTargeted ? { duration: 0.5, repeat: 0 } : { type: 'spring', stiffness: 260, damping: 20 },
+        filter: { duration: 0.5 },
+        rotate: { duration: 0.5 },
+        layout: { type: 'spring', stiffness: 320, damping: 28, mass: 0.7 },
+      }}
     >
       {sym && (
         <>
@@ -124,56 +106,29 @@ function Cell({ symId, phase, colIdx, rowIdx, isWin, isBomb, isBombHit, multipli
       {multiplier && (
         <motion.div
           className="dh-mult"
-          initial={{ scale: 0, rotate: -30 }}
+          initial={{ scale: 0, rotate: -20 }}
           animate={{ scale: 1, rotate: 0 }}
-          transition={{ type: 'spring', stiffness: 400, damping: 15 }}
+          transition={{ type: 'spring', stiffness: 420, damping: 15 }}
         >
           x{multiplier}
         </motion.div>
       )}
-
-      {/* Target crosshair when highlighted */}
-      {phase === PHASE.TARGET_HIGHLIGHT && isWin && (
+      {isTargeted && (
         <motion.div
           className="dh-target-hit"
-          initial={{ scale: 0, opacity: 0 }}
-          animate={{ scale: [0, 1.4, 1], opacity: [0, 1, 0.85] }}
+          initial={{ scale: 0, opacity: 0, rotate: -30 }}
+          animate={{ scale: [0, 1.5, 1], opacity: [0, 1, 0.9], rotate: 0 }}
           transition={{ duration: 0.5 }}
         >
           🎯
         </motion.div>
       )}
-
-      {/* Blast particles */}
-      {phase === PHASE.BLASTING && isWin && (
-        <>
-          {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => (
-            <motion.div
-              key={i}
-              className="dh-particle"
-              initial={{ x: 0, y: 0, opacity: 1, scale: 1 }}
-              animate={{
-                x: Math.cos((i / 8) * Math.PI * 2) * 60,
-                y: Math.sin((i / 8) * Math.PI * 2) * 60,
-                opacity: 0,
-                scale: 0.4,
-              }}
-              transition={{ duration: 0.55, ease: 'easeOut' }}
-              style={{
-                background: sym?.color || '#ffd700',
-              }}
-            />
-          ))}
-        </>
-      )}
-
-      {/* Bomb burst */}
-      {phase === PHASE.BOMB_BURST && isBomb && (
+      {isBombArmed && (
         <motion.div
-          className="dh-bomb-flash"
-          initial={{ scale: 0, opacity: 1 }}
-          animate={{ scale: 3.5, opacity: 0 }}
-          transition={{ duration: 0.7, ease: 'easeOut' }}
+          className="dh-bomb-glow"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: [0.4, 1, 0.4] }}
+          transition={{ duration: 0.4, repeat: 1 }}
         />
       )}
     </motion.div>
@@ -181,129 +136,159 @@ function Cell({ symId, phase, colIdx, rowIdx, isWin, isBomb, isBombHit, multipli
 }
 
 export default function SlotGrid({ board, cascadeData, spinning, freeSpin }) {
-  const [phase, setPhase] = useState(PHASE.IDLE);
-  const [displayBoard, setDisplayBoard] = useState(board || emptyBoard());
-  const [winPositions, setWinPositions] = useState(new Set());
-  const [bombPositions, setBombPositions] = useState(new Set());
-  const [bombHitPositions, setBombHitPositions] = useState(new Set());
+  const [columns, setColumns] = useState(() => boardToColumns(board));
+  const [targetedIds, setTargetedIds] = useState(() => new Set());
+  const [bombArmedIds, setBombArmedIds] = useState(() => new Set());
   const [multMap, setMultMap] = useState({});
-  const [cascadeIdx, setCascadeIdx] = useState(0);
-  const timerRef = useRef(null);
+  const [phase, setPhase] = useState('idle');
+  const timersRef = useRef([]);
+  const cascadeSeqRef = useRef(0);
 
-  // Spin start
+  const clearTimers = () => {
+    timersRef.current.forEach((t) => clearTimeout(t));
+    timersRef.current = [];
+  };
+
+  const pushTimer = (fn, ms) => {
+    const t = setTimeout(fn, ms);
+    timersRef.current.push(t);
+    return t;
+  };
+
+  // When spin starts, blur the current board
   useEffect(() => {
     if (spinning) {
-      setPhase(PHASE.SPINNING);
-      setWinPositions(new Set());
-      setBombPositions(new Set());
-      setBombHitPositions(new Set());
+      setPhase('spinning');
+      setTargetedIds(new Set());
+      setBombArmedIds(new Set());
     }
   }, [spinning]);
 
-  // Play cascadeData sequence: LANDING → SHOWING → TARGET → BLAST → DROP → next step
+  // If no cascade yet but board updates (initial slot info), sync columns
   useEffect(() => {
-    if (timerRef.current) clearTimeout(timerRef.current);
+    if ((!cascadeData || cascadeData.length === 0) && board && phase === 'idle') {
+      setColumns(boardToColumns(board));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [board]);
+
+  // Process cascadeData
+  useEffect(() => {
+    clearTimers();
     if (!cascadeData || cascadeData.length === 0) {
-      if (board) setDisplayBoard(board);
+      setPhase('idle');
       return;
     }
 
+    cascadeSeqRef.current += 1;
+    const mySeq = cascadeSeqRef.current;
+
+    // Step 0: rebuild columns from step[0].board with FRESH ids.
+    // This causes AnimatePresence to mount all cells → they enter via initial={y:-180}
+    // producing the full-grid "drop in from top" landing animation.
+    const firstStep = cascadeData[0];
+    setColumns(boardToColumns(firstStep.board));
+    setMultMap(getMultiplierMap(firstStep.currentPositionMultiplier));
+    setPhase('landing');
+    setTargetedIds(new Set());
+    setBombArmedIds(new Set());
+
     let stepIdx = 0;
-    const runStep = () => {
+
+    const processStep = () => {
+      if (mySeq !== cascadeSeqRef.current) return;
       const step = cascadeData[stepIdx];
       if (!step) {
-        setPhase(PHASE.IDLE);
-        setWinPositions(new Set());
-        setBombPositions(new Set());
-        setBombHitPositions(new Set());
+        setPhase('idle');
+        setTargetedIds(new Set());
+        setBombArmedIds(new Set());
         return;
       }
+      const nextStep = cascadeData[stepIdx + 1];
+      const winSet = getWinPositionSet(step.currentCountWin);
+      const bombSet = getBombSet(step.bombState);
+      const bombHitSet = getBombHitSet(step.bombState);
 
-      const wins = getWinPositionSet(step.currentCountWin);
-      const bombs = getBombSet(step.bombState);
-      const bombHits = getRemovedBySet(step.bombState);
-      const mults = getMultiplierMap(step.currentPositionMultiplier);
-      setCascadeIdx(stepIdx);
+      // Combined set of "to be removed" (winners OR bomb-hit)
+      const removedSet = new Set([...winSet, ...bombHitSet]);
 
-      // Phase 1: Land — show initial board of this step
-      setPhase(PHASE.LANDING);
-      setDisplayBoard(step.board);
-      setWinPositions(new Set());
-      setBombPositions(new Set());
-      setBombHitPositions(new Set());
-      setMultMap(mults);
+      const initialWait = stepIdx === 0 ? T.firstLandWait : T.step;
 
-      const stagger = REELS * TIMINGS.landStagger + TIMINGS.postLand;
+      pushTimer(() => {
+        if (mySeq !== cascadeSeqRef.current) return;
+        setMultMap(getMultiplierMap(step.currentPositionMultiplier));
 
-      timerRef.current = setTimeout(() => {
-        setPhase(PHASE.SHOWING);
-
-        if (wins.size > 0) {
-          // Phase 2: Target highlight the winning symbols
-          timerRef.current = setTimeout(() => {
-            setPhase(PHASE.TARGET_HIGHLIGHT);
-            setWinPositions(wins);
-
-            // Phase 3: Blast (explode)
-            timerRef.current = setTimeout(() => {
-              setPhase(PHASE.BLASTING);
-
-              // Phase 4: Clear removed cells → they'll refill on next step
-              timerRef.current = setTimeout(() => {
-                // move to next cascade step which shows refill
-                stepIdx++;
-                setPhase(PHASE.DROPPING);
-                if (cascadeData[stepIdx]) {
-                  timerRef.current = setTimeout(runStep, TIMINGS.refill);
-                } else {
-                  setPhase(PHASE.IDLE);
-                  setWinPositions(new Set());
-                }
-              }, TIMINGS.blast);
-            }, TIMINGS.targetHighlight);
-          }, 250);
-        } else if (bombs.size > 0) {
-          // Phase 2b: Bomb armed animation
-          setBombPositions(bombs);
-          timerRef.current = setTimeout(() => {
-            setPhase(PHASE.BOMB_ARMED);
-
-            timerRef.current = setTimeout(() => {
-              setPhase(PHASE.BOMB_BURST);
-              setBombHitPositions(bombHits);
-
-              timerRef.current = setTimeout(() => {
-                stepIdx++;
-                setPhase(PHASE.DROPPING);
-                if (cascadeData[stepIdx]) {
-                  timerRef.current = setTimeout(runStep, TIMINGS.refill);
-                } else {
-                  setPhase(PHASE.IDLE);
-                  setBombPositions(new Set());
-                  setBombHitPositions(new Set());
-                }
-              }, TIMINGS.bombBurst);
-            }, TIMINGS.bombArm);
-          }, 250);
-        } else {
-          // No win, no bomb → just advance
+        if (removedSet.size === 0 && bombSet.size === 0) {
           stepIdx++;
-          if (cascadeData[stepIdx]) {
-            timerRef.current = setTimeout(runStep, 250);
-          } else {
-            setPhase(PHASE.IDLE);
-          }
+          processStep();
+          return;
         }
-      }, stagger);
+
+        // ------- PHASE: TARGETING / BOMB-ARMING -------
+        setColumns((currentCols) => {
+          const winIds = new Set();
+          const armIds = new Set();
+          currentCols.forEach((col, cIdx) => {
+            col.forEach((cell, rIdx) => {
+              const k = cellKey(cIdx, rIdx);
+              if (winSet.has(k)) winIds.add(cell.id);
+              if (bombSet.has(k)) armIds.add(cell.id);
+            });
+          });
+          setTargetedIds(winIds);
+          setBombArmedIds(armIds);
+          setPhase(winSet.size > 0 ? 'targeting' : 'bomb-arming');
+          return currentCols;
+        });
+
+        // ------- PHASE: BLAST + REFILL (framer handles gravity + entry) -------
+        pushTimer(() => {
+          if (mySeq !== cascadeSeqRef.current) return;
+          setPhase('blasting');
+          setColumns((currentCols) =>
+            currentCols.map((col, cIdx) => {
+              const removedRowsInCol = new Set();
+              col.forEach((_, rIdx) => {
+                const k = cellKey(cIdx, rIdx);
+                if (removedSet.has(k)) removedRowsInCol.add(rIdx);
+              });
+              if (removedRowsInCol.size === 0) return col;
+
+              // Survivors keep their IDs → framer `layout` slides them down.
+              const survivors = col.filter((_, rIdx) => !removedRowsInCol.has(rIdx));
+
+              // New cells at TOP of column, drawn from nextStep.board[col][0..N-1].
+              // These get fresh IDs → AnimatePresence mounts them → they enter with initial={y:-180}.
+              const newCount = removedRowsInCol.size;
+              let newCells = [];
+              if (nextStep && nextStep.board && nextStep.board[cIdx]) {
+                newCells = Array.from({ length: newCount }, (_, i) =>
+                  makeCell(nextStep.board[cIdx][i])
+                );
+              } else {
+                // last cascade step — just fill with nulls (no next board)
+                newCells = Array.from({ length: newCount }, () => makeCell(null));
+              }
+
+              return [...newCells, ...survivors];
+            })
+          );
+          setTargetedIds(new Set());
+          setBombArmedIds(new Set());
+
+          pushTimer(() => {
+            if (mySeq !== cascadeSeqRef.current) return;
+            stepIdx++;
+            processStep();
+          }, T.blast + T.refill);
+        }, T.target);
+      }, initialWait);
     };
 
-    runStep();
+    processStep();
 
-    return () => { if (timerRef.current) clearTimeout(timerRef.current); };
-  }, [cascadeData, board]);
-
-  const isBlastingOrHighlight = phase === PHASE.TARGET_HIGHLIGHT || phase === PHASE.BLASTING;
-  const currentBoard = displayBoard || emptyBoard();
+    return () => clearTimers();
+  }, [cascadeData]);
 
   return (
     <div className={`dh-grid-container ${freeSpin ? 'dh-fs-mode' : ''}`}>
@@ -315,54 +300,47 @@ export default function SlotGrid({ board, cascadeData, spinning, freeSpin }) {
               className="dh-fs-particle"
               initial={{ y: -20, x: `${(i * 5.5) % 100}%`, opacity: 0 }}
               animate={{ y: '110%', opacity: [0, 1, 0] }}
-              transition={{ duration: 3 + (i % 4), repeat: Infinity, delay: i * 0.15, ease: 'linear' }}
+              transition={{
+                duration: 3 + (i % 4),
+                repeat: Infinity,
+                delay: i * 0.15,
+                ease: 'linear',
+              }}
             />
           ))}
         </div>
       )}
 
       <div className={`dh-grid ${freeSpin ? 'dh-fs-grid' : ''}`}>
-        {Array.from({ length: REELS }).map((_, col) => (
-          <div className="dh-reel" key={`reel-${col}`}>
-            {Array.from({ length: ROWS }).map((_, row) => {
-              const key = cellKey(col, row);
-              const sym = currentBoard?.[col]?.[row];
-              const isWin = winPositions.has(key);
-              const isBomb = bombPositions.has(key);
-              const isBombHit = bombHitPositions.has(key);
-              const mult = multMap[key];
-
-              return (
-                <div className="dh-cell-slot" key={`slot-${key}`}>
-                  <AnimatePresence mode="wait">
-                    <Cell
-                      key={`${key}-${cascadeIdx}-${phase}-${sym}`}
-                      symId={sym}
-                      phase={phase}
-                      colIdx={col}
-                      rowIdx={row}
-                      isWin={isWin}
-                      isBomb={isBomb}
-                      isBombHit={isBombHit}
-                      multiplier={mult}
-                      freeSpin={freeSpin}
-                    />
-                  </AnimatePresence>
-                </div>
-              );
-            })}
+        {columns.map((col, cIdx) => (
+          <div
+            className={`dh-reel ${phase === 'spinning' ? 'dh-reel-spinning' : ''}`}
+            key={`reel-${cIdx}`}
+          >
+            <AnimatePresence initial={false}>
+              {col.map((cell, rIdx) => (
+                <Cell
+                  key={cell.id}
+                  cell={cell}
+                  freeSpin={freeSpin}
+                  isTargeted={targetedIds.has(cell.id)}
+                  isBombArmed={bombArmedIds.has(cell.id)}
+                  multiplier={multMap[cellKey(cIdx, rIdx)]}
+                />
+              ))}
+            </AnimatePresence>
           </div>
         ))}
       </div>
 
-      {isBlastingOrHighlight && winPositions.size > 0 && (
+      {phase === 'targeting' && targetedIds.size > 0 && (
         <motion.div
           className="dh-target-badge"
           initial={{ y: -30, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           exit={{ opacity: 0 }}
         >
-          🎯 {winPositions.size} TARGETS LOCKED
+          🎯 {targetedIds.size} TARGETS LOCKED
         </motion.div>
       )}
     </div>

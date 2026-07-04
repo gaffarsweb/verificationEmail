@@ -7,6 +7,8 @@ import BullBullGame from './component/BullBullGame';
 import Lucky6 from './component/Lucky6';
 import NiuBullGame from './component/NiuBullGame';
 import DuckHuntGame from './component/duckHunt/DuckHuntGame';
+import CelestialGame from './component/celestial/CelestialGame';
+import AgilaGame from './component/agila/AgilaGame';
 
 function App() {
   return (
@@ -22,6 +24,8 @@ function App() {
         <Route path="/lucky-six-game" element={<Lucky6 />} />
         <Route path="/niubull-game" element={<NiuBullGame />} />
         <Route path="/duck-hunt" element={<DuckHuntGame />} />
+        <Route path="/celestial-guardians" element={<CelestialGame />} />
+        <Route path="/agila-uprising" element={<AgilaGame />} />
       </Routes>
     </Router>
   );
