@@ -18,13 +18,67 @@ export const getSymbol = (id) =>
 export const AG_BET_SIZES = [0.01, 0.02, 0.03, 0.05, 0.1, 0.2, 0.5, 1];
 export const AG_BET_LEVELS = [1, 2, 3, 5, 10, 20, 50];
 
+// Wild Bounty Enhancement R1 — Tiered Bonus Buy (GDD §4.2)
+// 3 SKUs: Small (40×), Standard (100×, certified unchanged), Max (250×)
 export const AG_BONUS_BUY_OPTIONS = [
   {
-    id: 1,
-    name: 'Buy Bonus',
+    id: 2,   // buy_bonus_id 2 → v96buy2 (Small)
+    name: 'Small Buy',
+    cost: 40,
+    tier: 'small',
+    desc: '~3-4 Sun Idols · ~8 Free Spins · Budget-friendly entry into the uprising.',
+    highlight: false,
+  },
+  {
+    id: 1,   // buy_bonus_id 1 → v96buy1 (Standard, certified)
+    name: 'Standard Buy',
     cost: 100,
-    desc: '10 Free Spins guaranteed — scatters injected. Free spins start at ×8 multiplier and double each cascade!',
+    tier: 'standard',
+    desc: '~6.5 Sun Idols · ~17 Free Spins · The signature Uprising launch.',
     highlight: true,
+  },
+  {
+    id: 3,   // buy_bonus_id 3 → v96buy3 (Max)
+    name: 'Max Buy',
+    cost: 250,
+    tier: 'max',
+    desc: '~6-8 Sun Idols · ~28 Free Spins · Denser goldens · Full pantheon fury.',
+    highlight: false,
+  },
+];
+
+// Wild Bounty Enhancement R1 — Player-Choice Free Spins (GDD §4.1)
+// All 3 variants are EV-equal at 0.50892 — only volatility shape differs.
+export const AG_VARIANT_OPTIONS = [
+  {
+    id: 'RISKY',
+    name: 'Risky',
+    icon: '⚔️',
+    spinsLabel: '~7',
+    startMult: 16,
+    volatility: 'HIGHEST',
+    color: '#ff4a3d',
+    desc: 'Fewer spins, ×16 starting multiplier — for the bold.',
+  },
+  {
+    id: 'STABLE',
+    name: 'Stable',
+    icon: '🛡️',
+    spinsLabel: '~20',
+    startMult: 4,
+    volatility: 'LOWEST',
+    color: '#3d7cff',
+    desc: 'More spins, ×4 starting multiplier — steady wins.',
+  },
+  {
+    id: 'MYSTERY',
+    name: 'Mystery',
+    icon: '❓',
+    spinsLabel: '?',
+    startMult: '?',
+    volatility: 'MIXED',
+    color: '#ba55d3',
+    desc: 'Fate decides — Risky or Stable revealed at pick.',
   },
 ];
 

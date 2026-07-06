@@ -28,6 +28,13 @@ export const EVENTS = {
   FREE_SPIN_INFO: 'FREE_SPIN_INFO',
   GET_BONUS_INFO: 'GET_BONUS_INFO',
   BUY_BONUS: 'BUY_BONUS',
+
+  // Wild Bounty Enhancement R1 — variant free-spin pick (GDD §4.1)
+  GET_PICK_REQUEST: 'GET_PICK_REQUEST',
+  SEND_PICK_CHOICE: 'SEND_PICK_CHOICE',
+
+  // Wild Bounty Enhancement R1 — cosmetic duel (GDD §4.4)
+  DUEL_VIS_INFO: 'DUEL_VIS_INFO',
 };
 
 export function createAGSocket(playerId) {

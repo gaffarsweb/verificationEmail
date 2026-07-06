@@ -6,6 +6,8 @@ import BetControls from './BetControls';
 import BuyBonusPanel from './BuyBonusPanel';
 import MultiplierProgressBar from './MultiplierProgressBar';
 import { FreeSpinBadge, WinBanner, ScatterTrigger } from './FreeSpinOverlay';
+import VariantPickModal from './VariantPickModal';
+import DuelAnimation from './DuelAnimation';
 import './AgilaGame.css';
 
 const DEFAULT_PLAYER_ID =
@@ -47,8 +49,15 @@ export default function AgilaGame() {
   const [eventLogOpen, setEventLogOpen] = useState(false);
   const [eventLogExpanded, setEventLogExpanded] = useState({});
 
+  // Wild Bounty Enhancement R1 state
+  const [duelState, setDuelState] = useState({ show: false, outcome: null });
+  const [pickModalOpen, setPickModalOpen] = useState(false);
+  const [pendingPickGameId, setPendingPickGameId] = useState(null);
+  const [selectedVariant, setSelectedVariant] = useState(null);
+
   const socketRef = useRef(null);
   const freeSpinTimerRef = useRef(null);
+  const pendingDuelRef = useRef(null);  // Holds duel outcome until modal shows
 
   const totalBet = betSize * betLevel;
 
@@ -151,6 +160,15 @@ export default function AgilaGame() {
         setScatterTrigger({ show: true, count: scatterCount, freeSpins: fsAdd });
       }
 
+      // Wild Bounty Enhancement R1 — capture variant selection state
+      if (state.selectedVariant) {
+        setSelectedVariant(state.selectedVariant);
+      }
+      // Capture duel outcome from base spin (server pre-drew it)
+      if (state.duelData?.outcome) {
+        pendingDuelRef.current = state.duelData.outcome;
+      }
+
       const totalStepMs = (state.cascadeData?.length || 1) * 900 + 800;
       window.setTimeout(() => setSpinning(false), totalStepMs);
     });
@@ -214,6 +232,35 @@ export default function AgilaGame() {
       logEvent(EVENTS.AUTO_PLAY_ERR, msg);
       setAutoplay({ active: false, remaining: 0 });
       pushMsg(msg || 'Autoplay error', 'error');
+    });
+
+    // Wild Bounty Enhancement R1 — Cosmetic Duel (GDD §4.4)
+    // Server pre-draws outcome and pushes it here. Non-math visual only.
+    socket.on(EVENTS.DUEL_VIS_INFO, (payload) => {
+      logEvent(EVENTS.DUEL_VIS_INFO, payload);
+      const outcome = payload?.outcome || pendingDuelRef.current || 'HERO';
+      pendingDuelRef.current = outcome;
+      setDuelState({ show: true, outcome });
+      pushMsg('⚔️ Standoff begins...', 'info');
+    });
+
+    // Wild Bounty Enhancement R1 — Variant Pick (GDD §4.1)
+    // Server signals pick required. If duel is playing, wait for it;
+    // otherwise open pick modal immediately.
+    socket.on(EVENTS.GET_PICK_REQUEST, (payload) => {
+      logEvent(EVENTS.GET_PICK_REQUEST, payload);
+      const gid = payload?.gameId || gameId;
+      setPendingPickGameId(gid);
+      // Cancel any auto-FS-start that might have queued
+      if (freeSpinTimerRef.current) {
+        clearTimeout(freeSpinTimerRef.current);
+        freeSpinTimerRef.current = null;
+      }
+      // If duel is showing, defer pick modal until duel completes.
+      // If not, open pick modal directly (bought entry has no duel).
+      if (!pendingDuelRef.current) {
+        setPickModalOpen(true);
+      }
     });
 
     socket.onAny((eventName, ...args) => {
@@ -302,6 +349,33 @@ export default function AgilaGame() {
     socket.emit(EVENTS.BUY_BONUS, payload);
     logEvent(EVENTS.BUY_BONUS, payload, 'out');
   };
+
+  // Wild Bounty Enhancement R1 — Duel completion callback.
+  // When cosmetic animation ends, open the variant pick modal.
+  const handleDuelComplete = useCallback(() => {
+    setDuelState({ show: false, outcome: pendingDuelRef.current });
+    if (pendingPickGameId) {
+      setPickModalOpen(true);
+    }
+  }, [pendingPickGameId]);
+
+  // Player picks a variant → emit SEND_PICK_CHOICE, close modal,
+  // clear pending duel. Server will process pick and auto-start FS.
+  const handleVariantPick = useCallback((variantId) => {
+    const socket = socketRef.current;
+    if (!socket) return;
+    const payload = {
+      gameId: pendingPickGameId || gameId,
+      player_choice: variantId,
+    };
+    socket.emit(EVENTS.SEND_PICK_CHOICE, payload);
+    logEvent(EVENTS.SEND_PICK_CHOICE, payload, 'out');
+    setPickModalOpen(false);
+    setPendingPickGameId(null);
+    setSelectedVariant(variantId);
+    pendingDuelRef.current = null;
+    pushMsg(`Path chosen: ${variantId}`, 'success');
+  }, [gameId, pendingPickGameId, logEvent, pushMsg]);
 
   return (
     <div className={`ag-root ${freeSpins.active ? 'ag-root-fs' : ''}`}>
@@ -482,6 +556,18 @@ export default function AgilaGame() {
         scatterCount={scatterTrigger.count}
         freeSpinCount={scatterTrigger.freeSpins}
         onDone={() => setScatterTrigger({ show: false, count: 0, freeSpins: 0 })}
+      />
+
+      {/* Wild Bounty Enhancement R1 — Cosmetic Duel + Variant Pick */}
+      <DuelAnimation
+        show={duelState.show}
+        outcome={duelState.outcome}
+        onComplete={handleDuelComplete}
+      />
+      <VariantPickModal
+        open={pickModalOpen}
+        onPick={handleVariantPick}
+        duelOutcome={pendingDuelRef.current}
       />
 
       <div className="ag-messages">
