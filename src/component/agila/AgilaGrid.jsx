@@ -59,61 +59,108 @@ function getGoldenSet(goldenFramePositions = []) {
  */
 function Cell({ cell, isWin, isGolden, freeSpin }) {
   const sym = cell.symId != null ? getSymbol(cell.symId) : null;
-  const bg = sym ? `radial-gradient(circle at 30% 30%, ${sym.color}77, ${sym.color}22)` : 'transparent';
+  // isEmpty catches BOTH: (a) missing symId AND (b) unknown symId that fell
+  // through to getSymbol's `?` fallback (color:#333, tier:'unknown'). The
+  // fallback used to render as a black-on-black square with a golden frame
+  // (backend cascade overshoot / staggered-layout mismatch marks an empty
+  // slot as golden). Treat it as a placeholder gap instead.
+  const isEmpty = !sym || sym.tier === 'unknown';
+  const bg = (sym && !isEmpty)
+    ? `radial-gradient(circle at 30% 30%, ${sym.color}77, ${sym.color}22)`
+    : 'transparent';
+  const showGolden = isGolden && !isEmpty;
 
+  // Exit-time source-of-truth: the cell is a winner if either the current isWin
+  // prop says so, OR the cell was tagged as a winner at removal time. React 18
+  // batching can race the winIds clear with AnimatePresence's exit-prop read;
+  // the cell.wasWinner tag survives that race because it's set at removal time.
+  const wasWinnerCell = isWin || !!cell.wasWinner;
+
+  // Brightness peak kept below 1.4 so the symbol emoji stays visible even
+  // for yellow symbols (GOLD, SCAT). Earlier value 2.2 washed the cell out
+  // and yellow-on-yellow made the symbol invisible. The glow is now
+  // delivered via drop-shadow radius (outside the cell) rather than
+  // brightness (inside the cell), so contrast on the symbol is preserved.
   const winAnim = isWin
     ? {
-        scale: [1, 1.2, 1.12, 1.2, 1.12],
+        scale: [1, 1.18, 1.10, 1.18, 1.10],
         filter: [
           'brightness(1) drop-shadow(0 0 0 transparent)',
-          'brightness(2.2) drop-shadow(0 0 26px #ffcc00)',
-          'brightness(1.7) drop-shadow(0 0 18px #ffcc00)',
-          'brightness(2.2) drop-shadow(0 0 26px #ffcc00)',
-          'brightness(1.7) drop-shadow(0 0 18px #ffcc00)',
+          'brightness(1.35) drop-shadow(0 0 22px #ffcc00) drop-shadow(0 0 8px #fff)',
+          'brightness(1.2) drop-shadow(0 0 14px #ffcc00) drop-shadow(0 0 6px #fff)',
+          'brightness(1.35) drop-shadow(0 0 22px #ffcc00) drop-shadow(0 0 8px #fff)',
+          'brightness(1.2) drop-shadow(0 0 14px #ffcc00) drop-shadow(0 0 6px #fff)',
         ],
       }
     : {};
 
   return (
     <motion.div
-      layout
-      className={`ag-cell tier-${sym?.tier || 'empty'} ${isWin ? 'ag-win' : ''} ${isGolden ? 'ag-golden' : ''} ${freeSpin ? 'ag-fs-cell' : ''}`}
+      // No `layout` on winners during their exit — layout can hijack the
+      // scale-blast into a positional slide, making the burst look like a
+      // "fly up". Non-winners keep layout so gravity slide still animates.
+      layout={!wasWinnerCell}
+      className={`ag-cell tier-${sym?.tier || 'empty'} ${isWin ? 'ag-win' : ''} ${showGolden ? 'ag-golden' : ''} ${freeSpin ? 'ag-fs-cell' : ''} ${isEmpty ? 'ag-cell-gap' : ''}`}
       style={{ background: bg }}
-      initial={{ y: -220, opacity: 0, scale: 0.88, rotate: -4 }}
-      animate={{ y: 0, opacity: 1, scale: 1, rotate: 0, ...winAnim }}
-      exit={{
-        scale: [1.1, 1.9, 0],
-        opacity: [1, 1, 0],
-        rotate: [0, 15, 40],
-        transition: { duration: 0.6, ease: 'easeIn', times: [0, 0.35, 1] },
-      }}
+      // New symbols slide DOWN from top — slot-machine drop feel
+      initial={{ y: -280, opacity: 0, scale: 1 }}
+      animate={{ y: 0, opacity: 1, scale: 1, ...winAnim }}
+      // Two-mode exit animation:
+      //   - Winning cells: BLAST in place (grow → collapse) — celebration
+      //   - Non-winners:   SLIDE DOWN and off-grid — pushed by new symbols
+      exit={wasWinnerCell
+        ? {
+            // Win blast — no y movement, pure scale explosion in place
+            y: 0,
+            scale: [1, 1.35, 1.6, 0.1],
+            opacity: [1, 1, 0.9, 0],
+            transition: { duration: 0.45, ease: 'easeOut', times: [0, 0.3, 0.6, 1] },
+          }
+        : {
+            // Slide down out of view — pushed by new symbols from above
+            y: 280,
+            opacity: [1, 1, 0],
+            transition: { duration: 0.5, ease: 'easeIn', times: [0, 0.6, 1] },
+          }
+      }
       transition={{
-        y: { type: 'spring', stiffness: 300, damping: 22, mass: 0.9 },
-        opacity: { duration: 0.3 },
-        rotate: { type: 'spring', stiffness: 200, damping: 15 },
-        scale: isWin ? { duration: 0.75, repeat: 0 } : { type: 'spring', stiffness: 260, damping: 18 },
+        // Slot-machine drop timing — bouncy landing
+        y: { type: 'spring', stiffness: 260, damping: 20, mass: 1 },
+        opacity: { duration: 0.25 },
+        scale: wasWinnerCell ? { duration: 0.75, repeat: 0 } : { type: 'spring', stiffness: 240, damping: 22 },
         filter: { duration: 0.75 },
-        layout: { type: 'spring', stiffness: 300, damping: 26, mass: 0.75 },
+        // Framer's `layout` handles the gravity slide of surviving symbols
+        // moving DOWN to fill empty spots left by winning bursts.
+        layout: { type: 'spring', stiffness: 280, damping: 24, mass: 0.85 },
       }}
     >
-      {/* Golden frame */}
-      {isGolden && (
+      {/* Golden frame — only if there's a symbol to frame.
+          When the cell is a winner, the frame FADES OUT first (opacity 1→0,
+          expanding slightly for a "release" feel). This runs during the
+          winHighlight window (800ms), so by the time the blast exit
+          animation fires, the frame is already gone and the bare symbol
+          blasts cleanly — matching the requested UX: golden reveals →
+          symbol clear → symbol blasts. */}
+      {showGolden && (
         <motion.div
           className="ag-golden-frame"
           initial={{ opacity: 0, scale: 0.85 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.4 }}
+          animate={isWin
+            ? { opacity: 0, scale: 1.25 }
+            : { opacity: 1, scale: 1 }
+          }
+          transition={{ duration: isWin ? 0.35 : 0.4, ease: 'easeOut' }}
         />
       )}
 
-      {sym && (
+      {sym && !isEmpty && (
         <>
           <div className="ag-cell-emoji">{sym.emoji}</div>
           <div className="ag-cell-name">{sym.name}</div>
         </>
       )}
 
-      {sym?.tier === 'scatter' && (
+      {sym?.tier === 'scatter' && !isEmpty && (
         <motion.div
           className="ag-scatter-halo"
           animate={{ rotate: 360, opacity: [0.4, 0.9, 0.4] }}
@@ -271,11 +318,18 @@ export default function AgilaGrid({ board, cascadeData, spinning, freeSpin, curr
               col.forEach((cell, rIdx) => {
                 const k = cellKey(cIdx, rIdx);
                 if (winSet.has(k)) {
-                  // Golden frame cell doesn't get removed — it becomes wild
-                  // In our render, we just DON'T remove it (survives)
-                  if (!cell.golden) {
-                    removedRows.add(rIdx);
-                  }
+                  // ALL winning cells (including golden) blast. Earlier code
+                  // kept golden cells alive as persistent wilds — but the
+                  // desired UX is: golden frame fades → symbol reveals →
+                  // symbol blasts, same as any other winner.
+                  //
+                  // The golden frame fade happens during the highlight phase
+                  // (see .ag-golden-frame animate prop below, keyed on isWin).
+                  // By the time this blast setColumns runs, the frame is
+                  // already at opacity 0, so blast plays on the bare symbol.
+                  removedRows.add(rIdx);
+                  cell.wasWinner = true;
+                  if (cell.golden) cell.wasGoldenWinner = true;
                 }
               });
               if (removedRows.size === 0) return col;
@@ -314,10 +368,11 @@ export default function AgilaGrid({ board, cascadeData, spinning, freeSpin, curr
             });
           }, 30);
 
-          setWinIds(new Set());
-
           pushTimer(() => {
             if (mySeq !== cascadeSeqRef.current) return;
+            // Clear winIds AFTER the exit blast animation has completed.
+            // Clearing earlier races with AnimatePresence's exit prop evaluation.
+            setWinIds(new Set());
             stepIdx++;
             processStep();
           }, T.blast + T.refill);
@@ -354,11 +409,20 @@ export default function AgilaGrid({ board, cascadeData, spinning, freeSpin, curr
       <div className={`ag-grid ${freeSpin ? 'ag-fs-grid' : ''}`}>
         {columns.map((col, cIdx) => {
           const reelRows = AG_REEL_ROWS[cIdx];
+          const maxRows = 5; // Grid max row count
+          const emptyTopSlots = maxRows - reelRows;
           return (
             <div
               className={`ag-reel ag-reel-${reelRows} ${phase === 'spinning' ? 'ag-reel-spinning' : ''}`}
               key={`reel-${cIdx}`}
             >
+              {/* Placeholder decorations for staggered layout gaps — these are
+                  intentionally blank positions in the 3-4-5-5-4-3 reel config,
+                  not real playable cells. Rendered faded so they don't look like
+                  broken cells. */}
+              {Array.from({ length: emptyTopSlots }).map((_, i) => (
+                <div key={`gap-${cIdx}-${i}`} className="ag-cell ag-cell-gap" />
+              ))}
               <AnimatePresence initial={false}>
                 {col.map((cell) => (
                   <Cell
