@@ -51,12 +51,21 @@ export function WinBanner({ amount, currency = '₱' }) {
  * Full-screen scatter trigger animation
  */
 export function ScatterTrigger({ show, scatterCount, freeSpinCount, onDone }) {
+  // Store latest onDone in a ref so the effect's timer isn't reset by parent
+  // re-renders (which pass a new inline callback every render). Without this,
+  // the parent's frequent state updates during FS re-arm the setTimeout
+  // repeatedly and the overlay never dismisses.
+  const onDoneRef = React.useRef(onDone);
+  onDoneRef.current = onDone;
+
   React.useEffect(() => {
-    if (show && onDone) {
-      const t = setTimeout(onDone, 2600);
-      return () => clearTimeout(t);
-    }
-  }, [show, onDone]);
+    if (!show) return;
+    // 2s hero display, then auto-dismiss so FS gameplay reels are visible.
+    const t = setTimeout(() => {
+      if (typeof onDoneRef.current === 'function') onDoneRef.current();
+    }, 2000);
+    return () => clearTimeout(t);
+  }, [show]);
 
   return (
     <AnimatePresence>

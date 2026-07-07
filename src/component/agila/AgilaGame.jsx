@@ -58,6 +58,10 @@ export default function AgilaGame() {
   const socketRef = useRef(null);
   const freeSpinTimerRef = useRef(null);
   const pendingDuelRef = useRef(null);  // Holds duel outcome until modal shows
+  const fsSessionActiveRef = useRef(false); // Tracks if we're already in FS session (prevents ScatterTrigger re-firing on retriggers)
+  const nextFsStartDelayRef = useRef(1600); // Dynamic delay before first FS spin fires (extended when cascade + scatter trigger sequence pending)
+  const pickModalOpenTargetRef = useRef(0);  // Absolute ms timestamp when pick modal should open (set by playResult, consumed by GET_PICK_REQUEST)
+  const pickModalTimerRef = useRef(null);    // Handle for pending setTimeout that opens pick modal
 
   const totalBet = betSize * betLevel;
 
@@ -112,9 +116,31 @@ export default function AgilaGame() {
 
     socket.on(EVENTS.ERROR, (msg) => {
       logEvent(EVENTS.ERROR, msg);
-      setError(typeof msg === 'string' ? msg : JSON.stringify(msg));
-      pushMsg(typeof msg === 'string' ? msg : 'Error', 'error');
+      const errText = typeof msg === 'string' ? msg : (msg?.message || JSON.stringify(msg));
+      setError(errText);
+      pushMsg(errText, 'error');
+
+      // Full reset — any spin/FS/buy in flight is now dead. Bring UI back
+      // to a clean, interactable base state so the player isn't stuck.
       setSpinning(false);
+      setBuyBonusOpen(false);
+      setPickModalOpen(false);
+      setDuelState({ show: false, outcome: null });
+      setScatterTrigger({ show: false, count: 0, freeSpins: 0 });
+      pendingDuelRef.current = null;
+      if (freeSpinTimerRef.current) {
+        clearTimeout(freeSpinTimerRef.current);
+        freeSpinTimerRef.current = null;
+      }
+      if (pickModalTimerRef.current) {
+        clearTimeout(pickModalTimerRef.current);
+        pickModalTimerRef.current = null;
+      }
+      nextFsStartDelayRef.current = 1600;
+      pickModalOpenTargetRef.current = 0;
+
+      // Auto-dismiss error banner after 6 seconds (unless user taps to dismiss)
+      window.setTimeout(() => setError((cur) => (cur === errText ? null : cur)), 6000);
     });
 
     socket.on(EVENTS.SLOT_INFO, (info) => {
@@ -156,9 +182,8 @@ export default function AgilaGame() {
 
       const scatterCount = state.scatterData?.count || 0;
       const fsAdd = state.freespinsData?.add || 0;
-      if (scatterCount >= 3 && fsAdd > 0) {
-        setScatterTrigger({ show: true, count: scatterCount, freeSpins: fsAdd });
-      }
+      const willTriggerScatter =
+        scatterCount >= 3 && fsAdd > 0 && !fsSessionActiveRef.current;
 
       // Wild Bounty Enhancement R1 — capture variant selection state
       if (state.selectedVariant) {
@@ -169,8 +194,33 @@ export default function AgilaGame() {
         pendingDuelRef.current = state.duelData.outcome;
       }
 
+      // Cascade animation duration — buy trigger spin has more cascades due to
+      // guaranteed scatter symbols + wins that burst. Player must SEE the spin
+      // resolve fully before any overlay pops up.
       const totalStepMs = (state.cascadeData?.length || 1) * 900 + 800;
       window.setTimeout(() => setSpinning(false), totalStepMs);
+
+      // Defer ScatterTrigger overlay until AFTER cascade animation finishes,
+      // so the buy trigger spin is fully visible before the "AGILA UPRISING"
+      // hero appears. Only fires on FIRST FS entry — not on retriggers.
+      if (willTriggerScatter) {
+        fsSessionActiveRef.current = true;   // Lock the session immediately
+        window.setTimeout(() => {
+          setScatterTrigger({ show: true, count: scatterCount, freeSpins: fsAdd });
+        }, totalStepMs + 200);   // +200ms breathing room after final burst
+        // Push out the FS start delay: cascade + trigger reveal + 2s hero + 500ms buffer
+        nextFsStartDelayRef.current = totalStepMs + 200 + 2000 + 500;
+      } else {
+        // Normal FS spin timing (no trigger animation queued)
+        nextFsStartDelayRef.current = 1600;
+      }
+
+      // If this playResult routes to variant pick (nextAction='pick'), the
+      // server will fire GET_PICK_REQUEST immediately. Store a target time
+      // so the pick modal only opens AFTER the cascade animation completes.
+      if (state.nextAction === 'pick') {
+        pickModalOpenTargetRef.current = Date.now() + totalStepMs + 200;
+      }
     });
 
     socket.on(EVENTS.FREE_SPIN_WON, (count) => {
@@ -189,7 +239,12 @@ export default function AgilaGame() {
       });
       pushMsg('Uprising Free Spins started', 'success');
       if (freeSpinTimerRef.current) clearTimeout(freeSpinTimerRef.current);
-      freeSpinTimerRef.current = setTimeout(() => triggerFreeSpin(), 1600);
+      // Delay is set dynamically by playResult handler based on cascade length
+      // + whether scatter trigger overlay is being shown. This ensures buy
+      // trigger spin's cascade + hero animation both complete before FS starts.
+      const startDelay = nextFsStartDelayRef.current || 1600;
+      nextFsStartDelayRef.current = 1600;   // Reset to default for next round
+      freeSpinTimerRef.current = setTimeout(() => triggerFreeSpin(), startDelay);
     });
 
     socket.on(EVENTS.FREE_SPIN_INFO, (info) => {
@@ -210,6 +265,8 @@ export default function AgilaGame() {
     socket.on(EVENTS.FREE_SPIN_COMPLETED, (msg) => {
       logEvent(EVENTS.FREE_SPIN_COMPLETED, msg);
       setFreeSpins({ active: false, remaining: 0, total: 0, totalWon: 0, multiplier: 8 });
+      // Reset session flag so next natural FS entry shows the trigger overlay again
+      fsSessionActiveRef.current = false;
       pushMsg(msg || 'Free Spins Completed', 'info');
     });
 
@@ -245,8 +302,9 @@ export default function AgilaGame() {
     });
 
     // Wild Bounty Enhancement R1 — Variant Pick (GDD §4.1)
-    // Server signals pick required. If duel is playing, wait for it;
-    // otherwise open pick modal immediately.
+    // Server signals pick required. Wait for cascade animation + optional duel
+    // to complete before opening the modal. Otherwise the modal covers the
+    // buy trigger spin / natural cascade before the player sees it resolve.
     socket.on(EVENTS.GET_PICK_REQUEST, (payload) => {
       logEvent(EVENTS.GET_PICK_REQUEST, payload);
       const gid = payload?.gameId || gameId;
@@ -256,11 +314,19 @@ export default function AgilaGame() {
         clearTimeout(freeSpinTimerRef.current);
         freeSpinTimerRef.current = null;
       }
-      // If duel is showing, defer pick modal until duel completes.
-      // If not, open pick modal directly (bought entry has no duel).
-      if (!pendingDuelRef.current) {
+      // If duel is showing (natural FS entry with duelEnabled), duel plays
+      // out and handleDuelComplete opens the pick modal — nothing to do here.
+      if (pendingDuelRef.current) return;
+
+      // Otherwise (bought entry OR duel disabled), defer modal until cascade
+      // finishes so the buy trigger spin remains fully visible.
+      if (pickModalTimerRef.current) clearTimeout(pickModalTimerRef.current);
+      const target = pickModalOpenTargetRef.current || 0;
+      const delay = Math.max(0, target - Date.now());
+      pickModalTimerRef.current = setTimeout(() => {
         setPickModalOpen(true);
-      }
+        pickModalTimerRef.current = null;
+      }, delay);
     });
 
     socket.onAny((eventName, ...args) => {
@@ -586,11 +652,37 @@ export default function AgilaGame() {
         </AnimatePresence>
       </div>
 
-      {error && (
-        <div className="ag-error-toast" onClick={() => setError(null)}>
-          ⚠ {error} <small>(tap to dismiss)</small>
-        </div>
-      )}
+      <AnimatePresence>
+        {error && (
+          <motion.div
+            key={error}
+            className="ag-error-banner"
+            initial={{ y: -80, opacity: 0, scale: 0.95 }}
+            animate={{ y: 0, opacity: 1, scale: 1 }}
+            exit={{ y: -80, opacity: 0 }}
+            transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+            onClick={() => setError(null)}
+          >
+            <div className="ag-error-icon">⚠️</div>
+            <div className="ag-error-body">
+              <div className="ag-error-title">{
+                /insufficient/i.test(error) ? 'Insufficient Balance' :
+                /invalid/i.test(error) ? 'Invalid Request' :
+                /bonus/i.test(error) ? 'Bonus Purchase Failed' :
+                /free spin/i.test(error) ? 'Free Spin Error' :
+                /not found|not exist/i.test(error) ? 'Not Available' :
+                'Error'
+              }</div>
+              <div className="ag-error-msg">{error}</div>
+            </div>
+            <button
+              className="ag-error-close"
+              onClick={(e) => { e.stopPropagation(); setError(null); }}
+              aria-label="Dismiss error"
+            >×</button>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <div className={`ag-event-log ${eventLogOpen ? 'ag-open' : 'ag-collapsed'}`}>
         <div className="ag-event-log-header">

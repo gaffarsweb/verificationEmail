@@ -208,7 +208,9 @@ export default function AgilaGrid({ board, cascadeData, spinning, freeSpin, curr
     setWinIds(new Set());
     setStepInfo({
       stepIdx: 0,
-      currentWin: firstStep.currentWin || 0,
+      // Show currentWinCurrency (the actual money credited to wallet),
+      // NOT currentWin (raw multiplier points). Backend credits winCurrency.
+      currentWin: firstStep.currentWinCurrency || firstStep.currentWin || 0,
       cascadeMult: firstStep.currentMultiplier || 1,
     });
 

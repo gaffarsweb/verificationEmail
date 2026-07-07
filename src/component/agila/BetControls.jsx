@@ -56,7 +56,7 @@ export default function BetControls({
         </div>
       </div>
 
-      {/* Center: big golden spin button */}
+      {/* Center: big golden spin button with rotation animation while spinning */}
       <motion.button
         className={`ag-spin-btn ${spinning ? 'ag-spinning-btn' : ''} ${freeSpinsActive ? 'ag-fs' : ''}`}
         onClick={onSpin}
@@ -64,11 +64,17 @@ export default function BetControls({
         whileTap={!disabled ? { scale: 0.92 } : {}}
         whileHover={!disabled ? { scale: 1.05 } : {}}
       >
-        <div className="ag-spin-btn-glow" />
         <div className="ag-spin-btn-inner">
-          <svg viewBox="0 0 24 24" width="42" height="42" fill="currentColor">
+          <motion.svg
+            viewBox="0 0 24 24"
+            width="42"
+            height="42"
+            fill="currentColor"
+            animate={spinning ? { rotate: 360 } : { rotate: 0 }}
+            transition={spinning ? { duration: 0.8, repeat: Infinity, ease: 'linear' } : { duration: 0.2 }}
+          >
             <path d="M12 5V1L7 6l5 5V7c3.31 0 6 2.69 6 6s-2.69 6-6 6-6-2.69-6-6H4c0 4.42 3.58 8 8 8s8-3.58 8-8-3.58-8-8-8z" />
-          </svg>
+          </motion.svg>
         </div>
       </motion.button>
 
@@ -85,7 +91,15 @@ export default function BetControls({
           >−</button>
           <div className="ag-pill-bet-inner">
             <div className="ag-pill-label">BET AREA</div>
-            <div className="ag-pill-value">{totalBet.toFixed(2)}</div>
+            <motion.div
+              className="ag-pill-value"
+              key={totalBet}
+              initial={{ scale: 1.15, color: '#ffcc00' }}
+              animate={{ scale: 1, color: '#ffffff' }}
+              transition={{ duration: 0.35 }}
+            >
+              {totalBet.toFixed(2)}
+            </motion.div>
           </div>
           <button
             className="ag-bet-minmax"
