@@ -8,6 +8,7 @@ import MultiplierProgressBar from './MultiplierProgressBar';
 import { FreeSpinBadge, WinBanner, ScatterTrigger } from './FreeSpinOverlay';
 import VariantPickModal from './VariantPickModal';
 import DuelAnimation from './DuelAnimation';
+import { AG_VARIANT_OPTIONS } from './symbols';
 import './AgilaGame.css';
 
 const DEFAULT_PLAYER_ID =
@@ -246,13 +247,16 @@ export default function AgilaGame() {
 
     socket.on(EVENTS.FREE_SPIN_ROUND_STARTED, (info) => {
       logEvent(EVENTS.FREE_SPIN_ROUND_STARTED, info);
-      setFreeSpins({
+      // Prefer server-provided start multiplier if backend includes it;
+      // else preserve whatever handleVariantPick pre-seeded (16 for
+      // RISKY, 4 for STABLE); else fall back to the base FS default 8.
+      setFreeSpins((fs) => ({
         active: true,
         remaining: info.remainingSpins || info.totalRounds || 0,
         total: info.totalRounds || info.remainingSpins || 0,
         totalWon: info.totalWon || 0,
-        multiplier: 8,
-      });
+        multiplier: info.startMultiplier || info.multiplier || fs.multiplier || 8,
+      }));
       pushMsg('Uprising Free Spins started', 'success');
       if (freeSpinTimerRef.current) clearTimeout(freeSpinTimerRef.current);
       // Delay is set dynamically by playResult handler based on cascade length
@@ -459,6 +463,17 @@ export default function AgilaGame() {
     setPickModalOpen(false);
     setPendingPickGameId(null);
     setSelectedVariant(variantId);
+    // Pre-seed FS multiplier from the variant's known start value so the
+    // progress bar + badge show the correct number (16 for RISKY, 4 for
+    // STABLE) as soon as the modal closes — instead of the stale default
+    // 8 flashing until the first PLAY_RESULT overwrites it. MYSTERY stays
+    // on 8 because backend reveals RISKY/STABLE only at server-side; the
+    // subsequent FREE_SPIN_ROUND_STARTED / PLAY_RESULT will correct it.
+    const picked = AG_VARIANT_OPTIONS.find((v) => v.id === variantId);
+    if (picked && typeof picked.startMult === 'number') {
+      setFreeSpins((fs) => ({ ...fs, multiplier: picked.startMult }));
+      setCurrentCascadeMult(picked.startMult);
+    }
     pendingDuelRef.current = null;
     pushMsg(`Path chosen: ${variantId}`, 'success');
   }, [gameId, pendingPickGameId, logEvent, pushMsg]);
