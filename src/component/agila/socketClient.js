@@ -1,10 +1,11 @@
 import { io } from 'socket.io-client';
 
-// Single-port backend: Express REST + Socket.io share port 3002 by default.
+// Single-port backend: Express REST + Socket.io on same port.
+// Production Render URL used as fallback; env var can override for local dev.
 const SOCKET_URL =
   process.env.REACT_APP_AG_SOCKET_URL ||
   process.env.REACT_APP_DH_SOCKET_URL ||
-  'http://localhost:3002';
+  'https://slot-games-services.onrender.com';
 
 export const EVENTS = {
   CONNECT: 'connect',
