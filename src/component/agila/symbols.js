@@ -86,5 +86,10 @@ export const AG_VARIANT_OPTIONS = [
 export const AG_REEL_ROWS = [3, 4, 5, 5, 4, 3];
 export const AG_MAX_ROWS = 5;
 
-// Multiplier tiers for progress bar (doubles each cascade)
-export const AG_MULT_TIERS = [2, 4, 8, 16, 32, 64, 128, 256, 512, 1024];
+// Multiplier tiers for progress bar (doubles each cascade).
+// Sequence must start at 1× — that is the base game's starting multiplier
+// (see backend common.js `baseMultiplier = 1`). Cascades then double:
+// 1 → 2 → 4 → 8 → 16 → 32 → 64 → 128 → 256 → 512 → 1024 (max cap).
+// Free-spins seed higher (8× default, or per variant); progress bar
+// window centers on the active tier so it still shows correctly.
+export const AG_MULT_TIERS = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024];

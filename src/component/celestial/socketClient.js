@@ -1,6 +1,7 @@
 import { io } from 'socket.io-client';
 
-const SOCKET_URL = process.env.REACT_APP_CG_SOCKET_URL || process.env.REACT_APP_DH_SOCKET_URL || 'http://localhost:4033';
+// Single-port backend: Express REST + Socket.io share port 3002 by default.
+const SOCKET_URL = process.env.REACT_APP_CG_SOCKET_URL || process.env.REACT_APP_DH_SOCKET_URL || 'http://localhost:3002';
 
 export const EVENTS = {
   CONNECT: 'connect',

@@ -11,6 +11,9 @@ export default function BetControls({
   setBetSize,
   betLevel,
   setBetLevel,
+  coinMultiplier = 1,
+  coinValue,
+  totalBet,
   balance,
   onSpin,
   onStartAutoplay,
@@ -24,7 +27,11 @@ export default function BetControls({
   disabled,
 }) {
   const canChangeBet = !spinning && !autoplayActive && !freeSpinsActive;
-  const totalBet = betSize * betLevel;
+  // Parent already computes coinValue = betSize×betLevel and
+  // totalBet = coinValue×coinMultiplier. Fallback here for safety if
+  // either prop is missing (older callers).
+  const cv = coinValue ?? betSize * betLevel;
+  const tb = totalBet ?? cv * coinMultiplier;
 
   const cycleBetSize = (delta) => {
     const idx = AG_BET_SIZES.indexOf(betSize);
@@ -78,33 +85,52 @@ export default function BetControls({
         </div>
       </motion.button>
 
-      {/* Right cluster: BET + AUTO */}
+      {/* Right cluster: BET group (3 pills) + AUTO */}
       <div className="ag-bottom-right">
-        <div className="ag-pill ag-pill-bet">
+        {/* Bet cluster: COIN VALUE | BET LEVEL | TOTAL BET
+            With +/- flanking the group so player can adjust from either end. */}
+        <div className="ag-bet-cluster">
           <button
             className="ag-bet-minmax"
             disabled={!canChangeBet}
             onClick={() => {
+              // Decrement: try bet_level first, overflow to bet_size
               if (betLevel > AG_BET_LEVELS[0]) cycleBetLevel(-1);
               else cycleBetSize(-1);
             }}
           >−</button>
-          <div className="ag-pill-bet-inner">
-            <div className="ag-pill-label">BET AREA</div>
+
+          <div className="ag-pill ag-pill-coinvalue">
+            <div className="ag-pill-label">COIN VALUE</div>
+            <div className="ag-pill-value">{betSize.toFixed(2)}</div>
+          </div>
+
+          <div className="ag-pill ag-pill-betlevel">
+            <div className="ag-pill-label">BET LEVEL</div>
+            <div className="ag-pill-value">×{betLevel}</div>
+          </div>
+
+          <div className="ag-pill ag-pill-totalbet">
+            <div className="ag-pill-label">TOTAL BET</div>
             <motion.div
-              className="ag-pill-value"
-              key={totalBet}
+              className="ag-pill-value ag-pill-totalbet-value"
+              key={tb}
               initial={{ scale: 1.15, color: '#ffcc00' }}
               animate={{ scale: 1, color: '#ffffff' }}
               transition={{ duration: 0.35 }}
             >
-              {totalBet.toFixed(2)}
+              {tb.toFixed(2)}
             </motion.div>
+            {coinMultiplier > 1 && (
+              <div className="ag-pill-sub">= {cv.toFixed(2)} × {coinMultiplier}</div>
+            )}
           </div>
+
           <button
             className="ag-bet-minmax"
             disabled={!canChangeBet}
             onClick={() => {
+              // Increment: try bet_level first, overflow to bet_size
               if (betLevel < AG_BET_LEVELS[AG_BET_LEVELS.length - 1]) cycleBetLevel(1);
               else cycleBetSize(1);
             }}

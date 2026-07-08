@@ -30,6 +30,12 @@ export default function AgilaGame() {
   const [spinning, setSpinning] = useState(false);
   const [betSize, setBetSize] = useState(0.03);
   const [betLevel, setBetLevel] = useState(1);
+  // coinMultiplier is a per-game DB-configured constant (games.model.js).
+  // Backend charges: costOfBet = coinMultiplier × betSize × betLevel
+  // (see src/socket/index.js:668 for angliam_bayan_96 fast-path).
+  // Backend sends it via SLOT_INFO.coin_multiplier and PLAY_RESULT.user.coin_multiplier.
+  // Default 1 keeps math sane if the field ever fails to arrive.
+  const [coinMultiplier, setCoinMultiplier] = useState(1);
   const [lastWin, setLastWin] = useState(0);
   const [totalWin, setTotalWin] = useState(0);
   const [error, setError] = useState(null);
@@ -53,6 +59,7 @@ export default function AgilaGame() {
   const [duelState, setDuelState] = useState({ show: false, outcome: null });
   const [pickModalOpen, setPickModalOpen] = useState(false);
   const [pendingPickGameId, setPendingPickGameId] = useState(null);
+  // eslint-disable-next-line no-unused-vars
   const [selectedVariant, setSelectedVariant] = useState(null);
 
   const socketRef = useRef(null);
@@ -63,7 +70,12 @@ export default function AgilaGame() {
   const pickModalOpenTargetRef = useRef(0);  // Absolute ms timestamp when pick modal should open (set by playResult, consumed by GET_PICK_REQUEST)
   const pickModalTimerRef = useRef(null);    // Handle for pending setTimeout that opens pick modal
 
-  const totalBet = betSize * betLevel;
+  // coinValue: per-way stake — this is what wins are calibrated against
+  // (backend: winCurrency = win_points × coinValue).
+  // totalBet: actual chips deducted per spin — includes coinMultiplier.
+  // Player-facing "TOTAL BET" is totalBet; wins scale off coinValue.
+  const coinValue = betSize * betLevel;
+  const totalBet = coinValue * (coinMultiplier || 1);
 
   const pushMsg = useCallback((msg, type = 'info') => {
     setMessages((prev) => [{ id: Date.now() + Math.random(), msg, type }, ...prev].slice(0, 8));
@@ -150,6 +162,7 @@ export default function AgilaGame() {
       if (info.lastBoardState) setBoard(info.lastBoardState);
       if (typeof info.bet_size === 'number' && info.bet_size > 0) setBetSize(info.bet_size);
       if (typeof info.bet_level === 'number' && info.bet_level > 0) setBetLevel(info.bet_level);
+      if (typeof info.coin_multiplier === 'number' && info.coin_multiplier > 0) setCoinMultiplier(info.coin_multiplier);
       if (typeof info.freeSpins === 'number' && info.freeSpins > 0) {
         setFreeSpins((fs) => ({ ...fs, active: true, remaining: info.freeSpins, total: info.freeSpins }));
       }
@@ -179,6 +192,9 @@ export default function AgilaGame() {
       if (win > 0) setTotalWin((t) => t + win);
 
       if (result.user && typeof result.user.balance === 'number') setBalance(result.user.balance);
+      if (result.user && typeof result.user.coin_multiplier === 'number' && result.user.coin_multiplier > 0) {
+        setCoinMultiplier(result.user.coin_multiplier);
+      }
 
       const scatterCount = state.scatterData?.count || 0;
       const fsAdd = state.freespinsData?.add || 0;
@@ -381,7 +397,11 @@ export default function AgilaGame() {
     setAutoplay({ active: true, remaining: rounds });
     const payload = {
       gameId, rounds,
-      coin_value: totalBet,
+      // coin_value = per-way stake (betSize × betLevel). Backend multiplies
+      // this by rounds × coin_multiplier to check balance sufficiency
+      // (socket/index.js:236) — passing totalBet here would double-apply
+      // coinMultiplier.
+      coin_value: coinValue,
       bet_size: betSize,
       bet_level: betLevel,
       game_code: AG_GAME_CODE,
@@ -556,6 +576,9 @@ export default function AgilaGame() {
               setBetSize={setBetSize}
               betLevel={betLevel}
               setBetLevel={setBetLevel}
+              coinMultiplier={coinMultiplier}
+              coinValue={coinValue}
+              totalBet={totalBet}
               balance={balance}
               onSpin={handleSpin}
               onStartAutoplay={handleStartAutoplay}

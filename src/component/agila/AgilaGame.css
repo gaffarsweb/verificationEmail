@@ -867,6 +867,56 @@
 .ag-bet-minmax:disabled { opacity: 0.3; cursor: not-allowed; }
 .ag-bet-minmax:hover:not(:disabled) { background: radial-gradient(circle at 30% 30%, #ffcc00, #7f4a00); color: #1a0a05; }
 
+/* ═══════════════════════════════════════════════════════════════════════
+   3-pill BET cluster — Coin Value | Bet Level | Total Bet
+   ═══════════════════════════════════════════════════════════════════════ */
+.ag-bet-cluster {
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+  padding: 4px 6px;
+  background: linear-gradient(180deg, rgba(255, 204, 0, 0.05), rgba(0, 0, 0, 0.3));
+  border-radius: 34px;
+  border: 1px solid rgba(255, 204, 0, 0.25);
+}
+.ag-bet-cluster .ag-bet-minmax { align-self: center; }
+.ag-bet-cluster .ag-pill {
+  min-height: 46px;
+  padding: 6px 12px;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 72px;
+  border-radius: 12px;
+  border-image: linear-gradient(135deg, #ffcc00, #7f4a00, #ffcc00) 1;
+}
+.ag-bet-cluster .ag-pill-label { font-size: 9px; opacity: 0.7; letter-spacing: 1.5px; }
+.ag-bet-cluster .ag-pill-value { font-size: 15px; line-height: 1; }
+
+/* TOTAL BET pill — larger, prominent (this is the actual charge) */
+.ag-pill-totalbet {
+  min-width: 92px !important;
+  background: linear-gradient(180deg, #3a2610 0%, #1a0f08 100%) !important;
+  box-shadow: 0 3px 12px rgba(255, 204, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+.ag-pill-totalbet .ag-pill-label { color: #ffcc00; opacity: 1; font-weight: 900; }
+.ag-pill-totalbet-value { font-size: 18px !important; font-weight: 900; }
+.ag-pill-sub {
+  font-size: 8px;
+  color: rgba(255, 204, 0, 0.55);
+  letter-spacing: 0.5px;
+  margin-top: 1px;
+  white-space: nowrap;
+}
+
+/* Responsive collapse: on smaller screens, stack coin value + bet level */
+@media (max-width: 900px) {
+  .ag-bet-cluster { border-radius: 20px; gap: 4px; padding: 3px 4px; }
+  .ag-bet-cluster .ag-pill { min-width: 60px; padding: 4px 8px; }
+  .ag-bet-cluster .ag-pill-value { font-size: 13px; }
+  .ag-pill-totalbet-value { font-size: 15px !important; }
+  .ag-pill-sub { display: none; }
+}
+
 .ag-pill-auto {
   flex-direction: column;
   padding: 8px 16px;
