@@ -49,26 +49,32 @@ export const AG_BONUS_BUY_OPTIONS = [
 
 // Wild Bounty Enhancement R1 — Player-Choice Free Spins (GDD §4.1)
 // All 3 variants are EV-equal at 0.50892 — only volatility shape differs.
+//
+// spinsLabel MUST match backend common.js `variantSpins` exactly, else
+// the pick modal misleads the player (was showing "~7" for RISKY when
+// backend actually awards 5, per GDD §4.1 tuning method that converged
+// RISKY to 5×16 to hit the mandatory 0.50892 EV target — the original
+// "~7" spec was superseded during tuning).
 export const AG_VARIANT_OPTIONS = [
   {
     id: 'RISKY',
     name: 'Risky',
     icon: '⚔️',
-    spinsLabel: '~7',
+    spinsLabel: '5',
     startMult: 16,
     volatility: 'HIGHEST',
     color: '#ff4a3d',
-    desc: 'Fewer spins, ×16 starting multiplier — for the bold.',
+    desc: 'Only 5 spins with ×16 starting multiplier — for the bold.',
   },
   {
     id: 'STABLE',
     name: 'Stable',
     icon: '🛡️',
-    spinsLabel: '~20',
+    spinsLabel: '20',
     startMult: 4,
     volatility: 'LOWEST',
     color: '#3d7cff',
-    desc: 'More spins, ×4 starting multiplier — steady wins.',
+    desc: '20 spins with ×4 starting multiplier — steady wins.',
   },
   {
     id: 'MYSTERY',
