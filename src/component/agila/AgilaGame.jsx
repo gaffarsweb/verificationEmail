@@ -6,6 +6,7 @@ import BetControls from './BetControls';
 import BuyBonusPanel from './BuyBonusPanel';
 import MultiplierProgressBar from './MultiplierProgressBar';
 import { FreeSpinBadge, WinBanner, ScatterTrigger } from './FreeSpinOverlay';
+import HeistOverlay from './HeistOverlay';
 import VariantPickModal from './VariantPickModal';
 import DuelAnimation from './DuelAnimation';
 import { AG_VARIANT_OPTIONS } from './symbols';
@@ -48,6 +49,8 @@ export default function AgilaGame() {
   const [autoplay, setAutoplay] = useState({ active: false, remaining: 0 });
   const [buyBonusOpen, setBuyBonusOpen] = useState(false);
   const [scatterTrigger, setScatterTrigger] = useState({ show: false, count: 0, freeSpins: 0 });
+  // Random Heist banner state — fires when backend response has heistData.fired
+  const [heistTrigger, setHeistTrigger] = useState({ show: false, wildsInjected: 0, winCurrency: 0 });
   const [turboMode, setTurboMode] = useState(false);
   const [soundOn, setSoundOn] = useState(true);
   const [currentCascadeMult, setCurrentCascadeMult] = useState(1);
@@ -216,6 +219,19 @@ export default function AgilaGame() {
       // resolve fully before any overlay pops up.
       const totalStepMs = (state.cascadeData?.length || 1) * 900 + 800;
       window.setTimeout(() => setSpinning(false), totalStepMs);
+
+      // Random Heist banner — fires when backend response has heistData.fired.
+      // Wait for cascade animation to finish so player sees the wilds land
+      // before the "RANDOM HEIST!" banner covers the grid.
+      if (state.heistData?.fired) {
+        window.setTimeout(() => {
+          setHeistTrigger({
+            show: true,
+            wildsInjected: state.heistData.wildsInjected || 0,
+            winCurrency: state.heistData.winCurrency || 0,
+          });
+        }, totalStepMs + 100);
+      }
 
       // Defer ScatterTrigger overlay until AFTER cascade animation finishes,
       // so the buy trigger spin is fully visible before the "AGILA UPRISING"
@@ -660,6 +676,13 @@ export default function AgilaGame() {
         scatterCount={scatterTrigger.count}
         freeSpinCount={scatterTrigger.freeSpins}
         onDone={() => setScatterTrigger({ show: false, count: 0, freeSpins: 0 })}
+      />
+
+      <HeistOverlay
+        show={heistTrigger.show}
+        wildsInjected={heistTrigger.wildsInjected}
+        winCurrency={heistTrigger.winCurrency}
+        onDone={() => setHeistTrigger({ show: false, wildsInjected: 0, winCurrency: 0 })}
       />
 
       {/* Wild Bounty Enhancement R1 — Cosmetic Duel + Variant Pick */}

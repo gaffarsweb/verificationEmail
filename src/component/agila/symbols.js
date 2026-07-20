@@ -1,15 +1,21 @@
 // Agila Uprising — underworld / boxing arena theme (matches Jili original)
+// Symbol IDs match backend wild_bounty engine:
+//   0=WC(Wild)  1-4=High tier  5-8=Low tier
+//   9=SC(Scatter)  10=BC(Bonus Coin)  11=SW(Sticky Wild — free game)
 export const AG_SYMBOLS = {
-  0: { name: 'WILD',   label: 'Wild',        color: '#ffcc00', emoji: '⭐', tier: 'wild' },
-  1: { name: 'GOLD',   label: 'Gold Bars',   color: '#ffcc00', emoji: '🟨', tier: 'high' },
-  2: { name: 'CASH',   label: 'Money Stack', color: '#4ade80', emoji: '💵', tier: 'high' },
-  3: { name: 'GUN',    label: 'Pistol',      color: '#94a3b8', emoji: '🔫', tier: 'high' },
-  4: { name: 'BAG',    label: 'Briefcase',   color: '#a0522d', emoji: '💼', tier: 'high' },
-  5: { name: 'RIFLE',  label: 'Assault',     color: '#78716c', emoji: '🎯', tier: 'low' },
-  6: { name: 'RADIO',  label: 'Walkie',      color: '#60a5fa', emoji: '📻', tier: 'low' },
-  7: { name: 'DYNM',   label: 'Dynamite',    color: '#dc2626', emoji: '🧨', tier: 'low' },
-  8: { name: 'KNIFE',  label: 'Blade',       color: '#cbd5e1', emoji: '🔪', tier: 'low' },
-  9: { name: 'SCAT',   label: 'Scatter',     color: '#ffcc00', emoji: '🛡️', tier: 'scatter' },
+  0:  { name: 'WILD',   label: 'Wild',        color: '#ffcc00', emoji: '⭐',  tier: 'wild' },
+  1:  { name: 'GOLD',   label: 'Gold Bars',   color: '#ffcc00', emoji: '🟨', tier: 'high' },
+  2:  { name: 'CASH',   label: 'Money Stack', color: '#4ade80', emoji: '💵', tier: 'high' },
+  3:  { name: 'GUN',    label: 'Pistol',      color: '#94a3b8', emoji: '🔫', tier: 'high' },
+  4:  { name: 'BAG',    label: 'Briefcase',   color: '#a0522d', emoji: '💼', tier: 'high' },
+  5:  { name: 'RIFLE',  label: 'Assault',     color: '#78716c', emoji: '🎯', tier: 'low' },
+  6:  { name: 'RADIO',  label: 'Walkie',      color: '#60a5fa', emoji: '📻', tier: 'low' },
+  7:  { name: 'DYNM',   label: 'Dynamite',    color: '#dc2626', emoji: '🧨', tier: 'low' },
+  8:  { name: 'KNIFE',  label: 'Blade',       color: '#cbd5e1', emoji: '🔪', tier: 'low' },
+  9:  { name: 'SCAT',   label: 'Scatter',     color: '#ffcc00', emoji: '🛡️', tier: 'scatter' },
+  // Wild Bounty reference features (available when backend routes to wild_bounty engine)
+  10: { name: 'COIN',   label: 'Bonus Coin',  color: '#f59e0b', emoji: '🪙', tier: 'bonus' },
+  11: { name: 'SWILD',  label: 'Sticky Wild', color: '#a855f7', emoji: '💠', tier: 'wild' },
 };
 
 export const getSymbol = (id) =>
